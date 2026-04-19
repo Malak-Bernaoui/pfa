@@ -2,48 +2,36 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Database\Factories\UserFactory;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\Model;
 
-    class User extends Authenticatable
-    {
-    /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
-
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
-     */
+class User extends Model
+{
+    protected $table = 'users';
+    protected $primaryKey = 'id';
+    public $incrementing = true;
+    
     protected $fillable = [
-        'name',
-        'email',
-        'password',
+        'login',
+        'mot_de_passe'
     ];
-
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var list<string>
-     */
+    
     protected $hidden = [
-        'password',
-        'remember_token',
+        'mot_de_passe'
     ];
-
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
-    protected function casts(): array
+    
+    // Relations
+    public function etudiant()
     {
-        return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-        ];
+        return $this->hasOne(Etudiant::class, 'user_id');
+    }
+    
+    public function enseignant()
+    {
+        return $this->hasOne(Enseignant::class, 'user_id');
+    }
+    
+    public function administrateur()
+    {
+        return $this->hasOne(Admin::class, 'user_id');
     }
 }
