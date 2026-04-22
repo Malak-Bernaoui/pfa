@@ -1,4 +1,3 @@
-// app/Http/Controllers/Api/EtudiantController.php
 <?php
 
 namespace App\Http\Controllers\Api;
@@ -27,15 +26,21 @@ class EtudiantController extends Controller
 
     public function notes($id)
     {
-        // À adapter selon votre table `notes`
-        $notes = []; // Exemple vide
+        $etudiant = Etudiant::find($id);
+        if (!$etudiant) {
+            return response()->json(['message' => 'Étudiant non trouvé'], 404);
+        }   
+        $notes = $etudiant->notes()->get();
         return response()->json($notes);
     }
 
     public function absences($id)
     {
-        // À adapter selon votre table `absences`
-        $absences = []; // Exemple vide
+        $etudiant = Etudiant::find($id);
+        if (!$etudiant) {
+            return response()->json(['message' => 'Étudiant non trouvé'], 404);
+        }
+        $absences = $etudiant->absences()->get();
         return response()->json($absences);
     }
 }

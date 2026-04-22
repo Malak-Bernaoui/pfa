@@ -4,10 +4,10 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class Enseignant extends Model
+class Administrateur extends Model
 {
-    protected $table = 'enseignants';
-    protected $fillable = ['user_id', 'nom', 'matiere'];
+    protected $table = 'administrateurs';
+    protected $fillable = ['user_id'];
     
     public function user()
     {
