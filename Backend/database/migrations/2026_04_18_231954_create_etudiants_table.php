@@ -14,7 +14,7 @@ return new class extends Migration
             $table->string('nom');
             $table->string('prenom');
             $table->date('date_naissance');
-            $table->foreignId('classe_id')->constrained('classes')->onDelete('restrict');
+            $table->foreignId('classe_id')->constrained('classes')->onDelete('cascade');
             $table->timestamps();
         });
     }
