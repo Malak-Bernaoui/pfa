@@ -7,20 +7,20 @@ use Illuminate\Database\Eloquent\Model;
 class Absence extends Model
 {
     protected $table = 'absences';
-    protected $primaryKey = 'id';
-    
-    protected $fillable = [
-        'date',
-        'etudiant_id'
-    ];
-    
+    protected $fillable = ['date', 'etudiant_id', 'enseignant_id', 'nb_heures', 'justifiee'];
+
     protected $casts = [
-        'date' => 'date'
+        'date' => 'date',
+        'justifiee' => 'boolean',
     ];
-    
-    // Relations
+
     public function etudiant()
     {
-        return $this->belongsTo(Etudiant::class, 'etudiant_id');
+        return $this->belongsTo(Etudiant::class);
+    }
+
+    public function enseignant()
+    {
+        return $this->belongsTo(Enseignant::class);
     }
 }
