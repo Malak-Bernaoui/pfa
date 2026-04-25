@@ -1,10 +1,76 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Controller;
+use App\Models\Note;
 use Illuminate\Http\Request;
 
 class NoteController extends Controller
 {
-    //
+    public function index()
+    {
+        $notes = Note::with('etudiant')->get();
+        return response()->json($notes);
+    }
+
+    public function store(Request $request)
+    {
+        $request->validate([
+            'matiere' => 'required|string|max:255',
+            'note' => 'required|numeric|min:0|max:20',
+            'etudiant_id' => 'required|exists:etudiants,id',
+        ]);
+
+        $note = Note::create($request->all());
+        return response()->json($note->load('etudiant'), 201);
+    }
+
+    public function show($id)
+    {
+        $note = Note::with('etudiant')->find($id);
+        if (!$note) {
+            return response()->json(['message' => 'Note non trouvée'], 404);
+        }
+        return response()->json($note);
+    }
+
+    public function update(Request $request, $id)
+    {
+        $note = Note::find($id);
+        if (!$note) {
+            return response()->json(['message' => 'Note non trouvée'], 404);
+        }
+
+        $request->validate([
+            'matiere' => 'required|string|max:255',
+            'note' => 'required|numeric|min:0|max:20',
+            'etudiant_id' => 'required|exists:etudiants,id',
+        ]);
+
+        $note->update($request->all());
+        return response()->json($note->load('etudiant'));
+    }
+
+    public function destroy($id)
+    {
+        $note = Note::find($id);
+        if (!$note) {
+            return response()->json(['message' => 'Note non trouvée'], 404);
+        }
+
+        $note->delete();
+        return response()->json(['message' => 'Note supprimée']);
+    }
+
+    public function getNotesByEtudiant($etudiantId)
+    {
+        try {
+            $notes = Note::where('etudiant_id', $etudiantId)
+                         ->get(['id', 'matiere', 'note']);
+            return response()->json($notes);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
 }

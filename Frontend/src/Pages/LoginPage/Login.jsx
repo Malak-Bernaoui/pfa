@@ -39,7 +39,7 @@ export default function Login() {
           navigate(`/etudiant/${redirect.id}`);
           break;
         default:
-          navigate('/dashboard');
+          navigate('/Accueil');
       }
     } catch (error) {
       console.error(error);

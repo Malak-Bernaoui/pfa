@@ -6,67 +6,242 @@ import api from '../../Api/Api';
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem('user'));
-  const [stats, setStats] = useState({ users: 0, enseignants: 0, etudiants: 0 });
+
+  const [activeTab, setActiveTab] = useState('overview');
+  const [stats, setStats] = useState({ users: 0, enseignants: 0, etudiants: 0, classes: 0 });
+  const [classes, setClasses] = useState([]);
+  const [enseignants, setEnseignants] = useState([]);
+  const [etudiants, setEtudiants] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const [showModal, setShowModal] = useState(false);
+  const [modalType, setModalType] = useState('');
+  const [currentItem, setCurrentItem] = useState(null);
+  const [formData, setFormData] = useState({});
 
   useEffect(() => {
-    // Exemple d'appel API pour récupérer des statistiques
-    const fetchStats = async () => {
-      try {
-        const res = await api.get('/admin/stats'); // À créer dans votre backend
-        setStats(res.data);
-      } catch (error) {
-        console.error('Erreur chargement stats', error);
-      }
-    };
-    fetchStats();
+    fetchAdminData();
   }, []);
 
-  const handleLogout = async () => {
+  const fetchAdminData = async () => {
+    setLoading(true);
     try {
-      await api.post('/logout');
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      navigate('/login');
+      const [statsRes, classesRes, enseignantsRes, etudiantsRes, usersRes] = await Promise.all([
+        api.get('/admin/stats'),
+        api.get('/classes'),
+        api.get('/enseignants'),
+        api.get('/etudiants'),
+        api.get('/admin/users'),
+      ]);
+
+      setStats(statsRes.data);
+      setClasses(classesRes.data);
+      setEnseignants(enseignantsRes.data);
+      setEtudiants(etudiantsRes.data);
+      setUsers(usersRes.data);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    await api.post('/logout');
+    localStorage.clear();
+    navigate('/login');
+  };
+
+  const openModal = (type, item = null) => {
+    setModalType(type);
+    setCurrentItem(item);
+
+    if (item) {
+      if (type === 'classe') {
+        setFormData({
+          nom: item.nom,
+          niveau: item.niveau,
+          disponible: item.disponible,
+        });
+      } else if (type === 'enseignant') {
+        setFormData({
+          nom: item.nom,
+          matiere: item.matiere,
+          email: item.user?.email || '',
+        });
+      } else if (type === 'etudiant') {
+        setFormData({
+          nom: item.nom,
+          prenom: item.prenom,
+          date_naissance: item.date_naissance,
+          email: item.user?.email ||'',
+          classe_id: item.classe_id,
+        });
+      }
+    } else {
+      if (type === 'classe') {
+        setFormData({ nom: '', niveau: '', disponible: true });
+      } else if (type === 'enseignant') {
+        setFormData({ nom: '', matiere: '', email: '', password: '' });
+      } else if (type === 'etudiant') {
+        setFormData({
+          nom: '',
+          prenom: '',
+          date_naissance: '',
+          email: '',
+          password: '',
+          classe_id: classes[0]?.id || '',
+        });
+      }
+    }
+
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setFormData({});
+    setCurrentItem(null);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    try {
+      if (modalType === 'classe') {
+        currentItem
+          ? await api.put(`/classes/${currentItem.id}`, formData)
+          : await api.post('/classes', formData);
+      }
+
+      if (modalType === 'enseignant') {
+        currentItem
+          ? await api.put(`/enseignants/${currentItem.id}`, formData)
+          : await api.post('/enseignants', formData);
+      }
+
+      if (modalType === 'etudiant') {
+        await api[currentItem ? 'put' : 'post'](
+          `/etudiants${currentItem ? `/${currentItem.id}` : ''}`,
+          formData
+        );
+      }
+
+      fetchAdminData();
+      closeModal();
     } catch (error) {
       console.error(error);
     }
   };
 
+  const deleteItem = async (type, id) => {
+    if (!window.confirm('Êtes-vous sûr ?')) return;
+    await api.delete(`/${type}/${id}`);
+    fetchAdminData();
+  };
+
+  if (loading) return <div className="text-center mt-10">Chargement...</div>;
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-200">
-      <nav className="bg-white shadow-md px-6 py-4 flex justify-between items-center">
-        <h1 className="text-xl font-bold text-gray-800">Administration</h1>
-        <button
-          onClick={handleLogout}
-          className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg"
-        >
-          Déconnexion
-        </button>
+    <div className="min-h-screen bg-gray-100">
+      {/* NAVBAR */}
+      <nav className="bg-white p-4 flex justify-between shadow">
+        <h1>Admin Dashboard</h1>
+        <button onClick={handleLogout}>Logout</button>
       </nav>
 
-      <div className="max-w-6xl mx-auto p-6 mt-8">
-        <div className="bg-white rounded-2xl shadow-xl p-8 mb-8">
-          <h2 className="text-2xl font-bold text-gray-800">
-            Bonjour, {user?.name} (Admin)
-          </h2>
-          <p className="text-gray-600 mt-2">Gérez l’ensemble de la plateforme.</p>
+      <div className="p-6">
+        {/* TABS */}
+        <div className="flex gap-4 mb-6">
+          {['overview', 'classes', 'enseignants', 'etudiants', 'users'].map((tab) => (
+            <button key={tab} onClick={() => setActiveTab(tab)}>
+              {tab}
+            </button>
+          ))}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white rounded-xl shadow-md p-6 text-center">
-            <h3 className="text-lg font-semibold text-gray-700">Utilisateurs</h3>
-            <p className="text-3xl font-bold text-indigo-600 mt-2">{stats.users}</p>
+        {/* OVERVIEW */}
+        {activeTab === 'overview' && (
+          <div>
+            <p>Users: {stats.users}</p>
+            <p>Enseignants: {stats.enseignants}</p>
+            <p>Étudiants: {stats.etudiants}</p>
+            <p>Classes: {stats.classes}</p>
           </div>
-          <div className="bg-white rounded-xl shadow-md p-6 text-center">
-            <h3 className="text-lg font-semibold text-gray-700">Enseignants</h3>
-            <p className="text-3xl font-bold text-indigo-600 mt-2">{stats.enseignants}</p>
+        )}
+
+        {/* CLASSES */}
+        {activeTab === 'classes' && (
+          <div>
+            <button onClick={() => openModal('classe')}>Ajouter</button>
+            {classes.map((c) => (
+              <div key={c.id}>
+                {c.nom} - {c.niveau}
+                <button onClick={() => openModal('classe', c)}>Edit</button>
+                <button onClick={() => deleteItem('classes', c.id)}>Delete</button>
+              </div>
+            ))}
           </div>
-          <div className="bg-white rounded-xl shadow-md p-6 text-center">
-            <h3 className="text-lg font-semibold text-gray-700">Étudiants</h3>
-            <p className="text-3xl font-bold text-indigo-600 mt-2">{stats.etudiants}</p>
+        )}
+
+        {/* ENSEIGNANTS */}
+        {activeTab === 'enseignants' && (
+          <div>
+            <button onClick={() => openModal('enseignant')}>Ajouter</button>
+            {enseignants.map((e) => (
+              <div key={e.id}>
+                {e.nom} - {e.user?.email || 'N/A'}
+                <button onClick={() => openModal('enseignant', e)}>Edit</button>
+                <button onClick={() => deleteItem('enseignants', e.id)}>Delete</button>
+              </div>
+            ))}
           </div>
-        </div>
+        )}
+
+        {/* ETUDIANTS */}
+        {activeTab === 'etudiants' && (
+          <div>
+            <button onClick={() => openModal('etudiant')}>Ajouter</button>
+            {etudiants.map((e) => (
+              <div key={e.id}>
+                {e.nom} {e.prenom} - {e.user?.email || 'N/A'}
+                <button onClick={() => openModal('etudiant', e)}>Edit</button>
+                <button onClick={() => deleteItem('etudiants', e.id)}>Delete</button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* USERS */}
+        {activeTab === 'users' && (
+          <div>
+            {users.map((u) => (
+              <div key={u.id}>
+                {u.name} - {u.email}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
+
+      {/* MODAL */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 flex justify-center items-center">
+          <form onSubmit={handleSubmit} className="bg-white p-6 rounded">
+            <input
+              placeholder="Nom"
+              value={formData.nom || ''}
+              onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
+            />
+
+            <button type="submit">Save</button>
+            <button type="button" onClick={closeModal}>
+              Cancel
+            </button>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

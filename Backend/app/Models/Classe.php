@@ -11,7 +11,8 @@ class Classe extends Model
     
     protected $fillable = [
         'nom',
-        'niveau'
+        'niveau',
+        'disponible'
     ];
     
     // Relations

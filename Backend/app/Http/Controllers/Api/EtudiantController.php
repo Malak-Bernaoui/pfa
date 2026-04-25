@@ -4,10 +4,46 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Etudiant;
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 
 class EtudiantController extends Controller
 {
+    public function index()
+    {
+        $etudiants = Etudiant::with(['user', 'classe'])->get();
+        return response()->json($etudiants);
+    }
+
+    public function store(Request $request)
+    {
+        $request->validate([
+            'nom' => 'required|string|max:255',
+            'prenom' => 'required|string|max:255',
+            'date_naissance' => 'required|date',
+            'email' => 'required|email|unique:users',
+            'password' => 'required|string|min:6',
+            'classe_id' => 'required|exists:classes,id',
+        ]);
+
+        $user = User::create([
+            'name' => $request->nom . ' ' . $request->prenom,
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
+        ]);
+
+        $etudiant = Etudiant::create([
+            'user_id' => $user->id,
+            'nom' => $request->nom,
+            'prenom' => $request->prenom,
+            'date_naissance' => $request->date_naissance,
+            'classe_id' => $request->classe_id,
+        ]);
+
+        return response()->json($etudiant->load(['user', 'classe']), 201);
+    }
+
     public function show($id)
     {
         $etudiant = Etudiant::with(['user', 'classe'])->find($id);
@@ -22,6 +58,48 @@ class EtudiantController extends Controller
             'classe' => $etudiant->classe,
             'user' => $etudiant->user
         ]);
+    }
+
+    public function update(Request $request, $id)
+    {
+        $etudiant = Etudiant::find($id);
+        if (!$etudiant) {
+            return response()->json(['message' => 'Étudiant non trouvé'], 404);
+        }
+
+        $request->validate([
+            'nom' => 'required|string|max:255',
+            'prenom' => 'required|string|max:255',
+            'date_naissance' => 'required|date',
+            'email' => 'sometimes|email|unique:users,email,' . $etudiant->user_id,
+            'classe_id' => 'required|exists:classes,id',
+        ]);
+
+        $etudiant->update([
+            'nom' => $request->nom,
+            'prenom' => $request->prenom,
+            'date_naissance' => $request->date_naissance,
+            'classe_id' => $request->classe_id,
+        ]);
+
+        if ($request->has('email')) {
+            $etudiant->user->update(['email' => $request->email]);
+        }
+
+        return response()->json($etudiant->load(['user', 'classe']));
+    }
+
+    public function destroy($id)
+    {
+        $etudiant = Etudiant::find($id);
+        if (!$etudiant) {
+            return response()->json(['message' => 'Étudiant non trouvé'], 404);
+        }
+
+        $etudiant->user->delete();
+        $etudiant->delete();
+
+        return response()->json(['message' => 'Étudiant supprimé']);
     }
 
     public function notes($id)
