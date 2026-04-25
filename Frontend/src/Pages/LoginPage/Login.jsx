@@ -21,43 +21,43 @@ export default function Login() {
       setLoading(true);
       setErrorMessage('');
 
-      const response = await api.post('/login', {
-        email,
-        password
-      });
+      const response = await api.post('/login', { email, password });
+      const { token, user, redirect } = response.data;
 
-      localStorage.setItem("token", response.data.token);
-      localStorage.setItem("user", JSON.stringify(response.data.user));
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
 
-      const role = response.data.user.role;
-      if (role === 'admin') {
-        navigate('/user/admin', { state: { successMessage: "Connexion réussie !" } });
-      } else if (role === 'client') {
-        navigate('/user/client', { state: { successMessage: "Connexion réussie !" } });
-      } else if (role === 'livreur') {
-        navigate('/user/livreur', { state: { successMessage: "Connexion réussie !" } });
-      } else {
-        navigate('/user/servant', { state: { successMessage: "Connexion réussie !" } });
+      // Redirection basée sur le type détecté
+      switch (redirect.type) {
+        case 'admin':
+          navigate('/admin/dashboard');
+          break;
+        case 'enseignant':
+          navigate(`/enseignant/${redirect.id}`);
+          break;
+        case 'etudiant':
+          navigate(`/etudiant/${redirect.id}`);
+          break;
+        default:
+          navigate('/dashboard');
       }
     } catch (error) {
       console.error(error);
-      if (error.response && error.response.data) {
-        setErrorMessage(error.response.data.message || 'Erreur de connexion.');
-      } else {
-        setErrorMessage('Erreur de connexion.');
-      }
+      const msg = error.response?.data?.errors?.email?.[0] 
+                  || error.response?.data?.message 
+                  || 'Erreur de connexion.';
+      setErrorMessage(msg);
     } finally {
       setLoading(false);
     }
   };
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-200 px-4 py-12">
       <form
         onSubmit={handleLogin}
         className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden transition-all duration-300 hover:shadow-3xl"
       >
-        {/* Header with accent */}
+        {/* Header */}
         <div className="bg-gradient-to-r from-gray-800 to-gray-900 px-8 py-6">
           <h2 className="text-3xl font-bold text-white text-center tracking-tight">
             Connexion

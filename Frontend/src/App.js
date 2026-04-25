@@ -1,14 +1,31 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import Login from './Pages/LoginPage/Login';
+import Register from './Pages/Inscription/Inscription';
+import Dashboard from './Pages/Dashboard/Dashboard';
+import AdminDashboard from './Pages/Administrateur/AdminDashboard';
+import EnseignantDashboard from './Pages/Enseignant/EnseignantDashboard';
+import EtudiantDashboard from './Pages/Etudiant/EtudiantDashboard';
 
-import Login from "./Pages/LoginPage/Login";
-import Inscription from "./Pages/Inscription/Inscription";
-import "./index.css";
+
+
+// Composant pour protéger les routes (optionnel)
+const ProtectedRoute = ({ children }) => {
+  const token = localStorage.getItem('token');
+  if (!token) return <Navigate to="/login" />;
+  return children;
+};
+
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Inscription />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/admin/dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+        <Route path="/enseignant/:id" element={<ProtectedRoute><EnseignantDashboard /></ProtectedRoute>} />
+        <Route path="/etudiant/:id" element={<ProtectedRoute><EtudiantDashboard /></ProtectedRoute>} />
+        <Route path="/" element={<Navigate to="/login" />} />
       </Routes>
     </BrowserRouter>
   );

@@ -2,27 +2,32 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 
-class User extends Model
+class User extends Authenticatable
 {
+    use HasApiTokens, HasFactory, Notifiable;
+
     protected $table = 'users';
     protected $primaryKey = 'id';
-    public $incrementing = true;
     
     protected $fillable = [
-        'login',
-        'mot_de_passe'
+        'name',  
+        'email',
+        'password',
     ];
     
     protected $hidden = [
-        'mot_de_passe'
+        'password',
+        'remember_token',
     ];
-    
     // Relations
-    public function etudiant()
+    public function administrateur()
     {
-        return $this->hasOne(Etudiant::class, 'user_id');
+        return $this->hasOne(Administrateur::class, 'user_id');
     }
     
     public function enseignant()
@@ -30,8 +35,24 @@ class User extends Model
         return $this->hasOne(Enseignant::class, 'user_id');
     }
     
-    public function administrateur()
+    public function etudiant()
     {
-        return $this->hasOne(Admin::class, 'user_id');
+        return $this->hasOne(Etudiant::class, 'user_id');
+    }
+    
+    // Méthodes utilitaires
+    public function isAdministrateur()
+    {
+        return $this->administrateur()->exists();
+    }
+    
+    public function isEnseignant()
+    {
+        return $this->enseignant()->exists();
+    }
+    
+    public function isEtudiant()
+    {
+        return $this->etudiant()->exists();
     }
 }

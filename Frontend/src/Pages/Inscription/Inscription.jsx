@@ -37,7 +37,7 @@ export default function RegisterPage() {
       localStorage.setItem("token", response.data.token);
       localStorage.setItem("user", JSON.stringify(response.data.user));
 
-      navigate("/user/client", {
+      navigate("/login", {
         state: { successMessage: "Inscription réussie !" },
       });
     } catch (error) {
@@ -63,7 +63,7 @@ export default function RegisterPage() {
         onSubmit={handleSubmit}
         className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden transition-all duration-300 hover:shadow-3xl"
       >
-        {/* Header with accent */}
+        {/* Header  */}
         <div className="bg-gradient-to-r from-gray-800 to-gray-900 px-8 py-6">
           <h2 className="text-3xl font-bold text-white text-center tracking-tight">
             Créer un compte
@@ -73,7 +73,7 @@ export default function RegisterPage() {
           </p>
         </div>
 
-        {/* Form Body */}
+        {/* Body */}
         <div className="px-8 py-8 space-y-6">
           {alert.message && (
             <div
@@ -195,7 +195,7 @@ export default function RegisterPage() {
           </p>
         </div>
 
-        {/* Optional footer note */}
+        {/* footer note */}
         <div className="bg-gray-50 px-8 py-3 text-center text-xs text-gray-400 border-t border-gray-100">
           En créant un compte, vous acceptez nos conditions générales.
         </div>
