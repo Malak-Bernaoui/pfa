@@ -44,6 +44,24 @@ Accessible aux utilisateurs sans rôle spécifique. Elle contient :
 - **Export PDF** : génère un relevé complet (infos personnelles, notes, absences) avec un design professionnel (Tailwind + impression).
 - **Mode sombre** intégré.
 
+### Espace enseignant (`/enseignant/:id`)
+
+- **Mon profil** : nom, prénom, matière enseignée, email, nombre de classes affectées.
+- **Tableau de bord** : vue d’ensemble des classes, étudiants, notes saisies et absences enregistrées.
+- **Mes classes** : liste des classes auxquelles l’enseignant est associé. Un clic sur une classe affiche la liste des étudiants (avec possibilité d’ajouter directement une note ou une absence).
+- **Gestion des notes** :
+  - Sélection d’une classe → affichage de ses étudiants.
+  - Clic sur un étudiant pour voir ses notes (matière de l’enseignant).
+  - Ajout / modification / suppression d’une note (modal dédié).
+- **Gestion des absences** :
+  - Sélection d’une classe → affichage de ses étudiants.
+  - Clic sur un étudiant pour voir ses absences (date, nombre d’heures, justification).
+  - Ajout / modification / suppression d’une absence (sans justification possible depuis le formulaire).
+- **Emploi du temps** : tableau hebdomadaire des cours (statique, personnalisable).
+- **Mode sombre** intégré.
+- **Déconnexion** via le menu utilisateur.
+
+
 
 ##  Architecture technique
 

@@ -24,8 +24,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/etudiants/{id}/absences', [AbsenceController::class, 'getAbsencesByEtudiant']);
 
     Route::apiResource('/classes', ClasseController::class);
+    Route::put('/classes/{id}/assign-teacher', [ClasseController::class, 'assignTeacher']);
     Route::apiResource('/notes', NoteController::class);
     Route::apiResource('/absences', AbsenceController::class);
+    Route::delete('/notes/{id}', [NoteController::class, 'destroy']);
+    Route::delete('/absences/{id}', [AbsenceController::class, 'destroy']);
+    Route::get('/enseignants', [EnseignantController::class, 'index']);
+    Route::get('/enseignants', [EnseignantController::class, 'index']);
+    Route::get('/etudiants/{etudiantId}/notes/matiere', [NoteController::class, 'getNotesByEtudiantAndMatiere']);
 
     Route::post('/contact', [ContactController::class, 'store']);
 

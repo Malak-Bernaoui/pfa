@@ -8,11 +8,20 @@ use Illuminate\Http\Request;
 
 class NoteController extends Controller
 {
-    public function index()
-    {
+public function index()
+{
+    $user = auth()->user();
+    $enseignant = $user->enseignant;
+    if ($enseignant) {
+        // On filtre directement sur la matière de l'enseignant
+        $notes = Note::with('etudiant')
+                     ->where('matiere', $enseignant->matiere)
+                     ->get();
+    } else {
         $notes = Note::with('etudiant')->get();
-        return response()->json($notes);
     }
+    return response()->json($notes);
+}
 
     public function store(Request $request)
     {
@@ -73,4 +82,17 @@ class NoteController extends Controller
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
+public function getNotesByEtudiantAndMatiere($etudiantId)
+{
+    $enseignant = auth()->user()->enseignant;
+    if (!$enseignant) {
+        return response()->json(['message' => 'Non autorisé'], 403);
+    }
+
+    $notes = Note::where('etudiant_id', $etudiantId)
+                 ->where('matiere', $enseignant->matiere)
+                 ->get(['id', 'etudiant_id', 'matiere', 'note']);
+
+    return response()->json($notes);
+}
 }

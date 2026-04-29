@@ -11,22 +11,39 @@ class AbsenceController extends Controller
 
     public function index()
     {
-        $absences = Absence::with(['etudiant', 'enseignant'])->get();
+        $user = auth()->user();
+        $enseignant = $user->enseignant;
+        if ($enseignant) {
+            $absences = Absence::where('enseignant_id', $enseignant->id)->with('etudiant')->get();
+        } else {
+            $absences = Absence::with('etudiant')->get();
+        }
         return response()->json($absences);
     }
-
-    public function store(Request $request)
+ public function store(Request $request)
     {
         $request->validate([
-            'date' => 'required|date',
             'etudiant_id' => 'required|exists:etudiants,id',
-            'enseignant_id' => 'required|exists:enseignants,id',
-            'nb_heures' => 'required|numeric|min:0',
-            'justifiee' => 'boolean',
+            'date' => 'required|date',
+            'nb_heures' => 'required|numeric|min:0.5',
+            'justifiee' => 'sometimes|boolean',
         ]);
 
-        $absence = Absence::create($request->all());
-        return response()->json($absence->load(['etudiant', 'enseignant']), 201);
+        // L'enseignant_id est déduit de l'utilisateur connecté
+        $enseignant = auth()->user()->enseignant;
+        if (!$enseignant) {
+            return response()->json(['message' => 'Enseignant non trouvé'], 403);
+        }
+
+        $absence = Absence::create([
+            'etudiant_id' => $request->etudiant_id,
+            'enseignant_id' => $enseignant->id,
+            'date' => $request->date,
+            'nb_heures' => $request->nb_heures,
+            'justifiee' => $request->justifiee ?? false,
+        ]);
+
+        return response()->json($absence, 201);
     }
 
     public function show($id)
@@ -38,25 +55,24 @@ class AbsenceController extends Controller
         return response()->json($absence);
     }
 
-    public function update(Request $request, $id)
-    {
-        $absence = Absence::find($id);
-        if (!$absence) {
-            return response()->json(['message' => 'Absence non trouvée'], 404);
-        }
-
-        $request->validate([
-            'date' => 'required|date',
-            'etudiant_id' => 'required|exists:etudiants,id',
-            'enseignant_id' => 'required|exists:enseignants,id',
-            'nb_heures' => 'required|numeric|min:0',
-            'justifiee' => 'boolean',
-        ]);
-
-        $absence->update($request->all());
-        return response()->json($absence->load(['etudiant', 'enseignant']));
+public function update(Request $request, $id)
+{
+    $absence = Absence::find($id);
+    if (!$absence) {
+        return response()->json(['message' => 'Absence non trouvée'], 404);
     }
 
+    // On valide uniquement ce qui peut être modifié
+    $request->validate([
+        'date' => 'sometimes|date',
+        'nb_heures' => 'sometimes|numeric|min:0.5',
+    ]);
+
+    // Mise à jour uniquement des champs reçus
+    $absence->update($request->only(['date', 'nb_heures']));
+
+    return response()->json($absence->load(['etudiant', 'enseignant']));
+}
     public function destroy($id)
     {
         $absence = Absence::find($id);

@@ -8,22 +8,33 @@ use Illuminate\Http\Request;
 
 class ClasseController extends Controller
 {
-    public function index()
-    {
+public function index()
+{
+    $user = auth()->user();
+    $enseignant = $user->enseignant;
+    if ($enseignant) {
+        $classes = $enseignant->classes()->withCount('etudiants')->get();
+    } else {
         $classes = Classe::withCount('etudiants')->get();
-        return response()->json($classes);
     }
+    return response()->json($classes);
+}
 
     public function store(Request $request)
     {
         $request->validate([
             'nom' => 'required|string|max:255',
-            'niveau' => 'required|string|max:255',
-            'disponible' => 'sometimes|boolean',
+            'niveau' => 'nullable|string|max:100',
+            'enseignant_ids' => 'array|exists:enseignants,id', // liste facultative
         ]);
 
-        $classe = Classe::create($request->all());
-        return response()->json($classe, 201);
+        $classe = Classe::create($request->only(['nom', 'niveau']));
+
+        if ($request->has('enseignant_ids')) {
+            $classe->enseignants()->sync($request->enseignant_ids);
+        }
+
+        return response()->json($classe->load('enseignants'), 201);
     }
 
     public function show($id)
@@ -37,19 +48,14 @@ class ClasseController extends Controller
 
     public function update(Request $request, $id)
     {
-        $classe = Classe::find($id);
-        if (!$classe) {
-            return response()->json(['message' => 'Classe non trouvée'], 404);
+        $classe = Classe::findOrFail($id);
+        $classe->update($request->only(['nom', 'niveau']));
+
+        if ($request->has('enseignant_ids')) {
+            $classe->enseignants()->sync($request->enseignant_ids);
         }
 
-        $request->validate([
-            'nom' => 'sometimes|required|string|max:255',
-            'niveau' => 'sometimes|required|string|max:255',
-            'disponible' => 'sometimes|boolean',
-        ]);
-
-        $classe->update($request->only(['nom', 'niveau', 'disponible']));
-        return response()->json($classe);
+        return response()->json($classe->load('enseignants'));
     }
 
     public function destroy($id)
@@ -62,4 +68,16 @@ class ClasseController extends Controller
         $classe->delete();
         return response()->json(['message' => 'Classe supprimée']);
     }
+    public function assignTeacher(Request $request, $id)
+{
+    $request->validate([
+        'enseignant_id' => 'required|exists:enseignants,id',
+    ]);
+
+    $classe = Classe::findOrFail($id);
+    $classe->enseignant_id = $request->enseignant_id;
+    $classe->save();
+
+    return response()->json($classe->load('enseignant'));
+}
 }

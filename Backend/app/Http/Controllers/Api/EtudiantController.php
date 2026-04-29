@@ -10,9 +10,13 @@ use Illuminate\Support\Facades\Hash;
 
 class EtudiantController extends Controller
 {
-    public function index()
+public function index(Request $request)
     {
-        $etudiants = Etudiant::with(['user', 'classe'])->get();
+        $query = Etudiant::with('classe');
+        if ($request->has('classe_id')) {
+            $query->where('classe_id', $request->classe_id);
+        }
+        $etudiants = $query->get();
         return response()->json($etudiants);
     }
 
@@ -44,9 +48,10 @@ class EtudiantController extends Controller
         return response()->json($etudiant->load(['user', 'classe']), 201);
     }
 
-    public function show($id)
-    {
-        $etudiant = Etudiant::with(['user', 'classe'])->find($id);
+public function show($id)
+{
+    try {
+        $etudiant = Etudiant::with(['classe', 'user'])->find($id);
         if (!$etudiant) {
             return response()->json(['message' => 'Étudiant non trouvé'], 404);
         }
@@ -55,10 +60,13 @@ class EtudiantController extends Controller
             'nom' => $etudiant->nom,
             'prenom' => $etudiant->prenom,
             'date_naissance' => $etudiant->date_naissance,
-            'classe' => $etudiant->classe,
-            'user' => $etudiant->user
+            'classe' => $etudiant->classe ? ['nom' => $etudiant->classe->nom] : null,
+            'user' => $etudiant->user ? ['email' => $etudiant->user->email] : null,
         ]);
+    } catch (\Exception $e) {
+        return response()->json(['error' => $e->getMessage()], 500);
     }
+}
 
     public function update(Request $request, $id)
     {

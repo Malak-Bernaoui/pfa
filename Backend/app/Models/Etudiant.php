@@ -13,9 +13,17 @@ class Etudiant extends Model
     {
         return $this->belongsTo(User::class, 'user_id');
     }
-    
     public function classe()
     {
         return $this->belongsTo(Classe::class, 'classe_id');
+    }
+    public function notes()
+    {
+        return $this->hasMany(Note::class);
+    }
+
+    public function absences()
+    {
+        return $this->hasMany(Absence::class);
     }
 }
