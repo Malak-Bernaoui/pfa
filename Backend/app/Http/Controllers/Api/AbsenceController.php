@@ -20,7 +20,7 @@ class AbsenceController extends Controller
         }
         return response()->json($absences);
     }
- public function store(Request $request)
+    public function store(Request $request)
     {
         $request->validate([
             'etudiant_id' => 'required|exists:etudiants,id',
@@ -55,24 +55,25 @@ class AbsenceController extends Controller
         return response()->json($absence);
     }
 
-public function update(Request $request, $id)
-{
-    $absence = Absence::find($id);
-    if (!$absence) {
-        return response()->json(['message' => 'Absence non trouvée'], 404);
+    public function update(Request $request, $id)
+    {
+        $absence = Absence::find($id);
+        if (!$absence) {
+            return response()->json(['message' => 'Absence non trouvée'], 404);
+        }
+
+        // Validation étendue pour inclure justifiee
+        $request->validate([
+            'date' => 'sometimes|date',
+            'nb_heures' => 'sometimes|numeric|min:0.5',
+            'justifiee' => 'sometimes|boolean',
+        ]);
+
+        // Mise à jour des champs reçus
+        $absence->update($request->only(['date', 'nb_heures', 'justifiee']));
+
+        return response()->json($absence->load(['etudiant', 'enseignant']));
     }
-
-    // On valide uniquement ce qui peut être modifié
-    $request->validate([
-        'date' => 'sometimes|date',
-        'nb_heures' => 'sometimes|numeric|min:0.5',
-    ]);
-
-    // Mise à jour uniquement des champs reçus
-    $absence->update($request->only(['date', 'nb_heures']));
-
-    return response()->json($absence->load(['etudiant', 'enseignant']));
-}
     public function destroy($id)
     {
         $absence = Absence::find($id);

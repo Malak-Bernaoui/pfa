@@ -30,7 +30,7 @@ export default function Login() {
       // Redirection basée sur le type détecté
       switch (redirect.type) {
         case 'admin':
-          navigate('/admin/dashboard');
+          navigate('/administrateurs');
           break;
         case 'enseignant':
           navigate(`/enseignant/${redirect.id}`);

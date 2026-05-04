@@ -7,6 +7,8 @@ use App\Http\Controllers\Api\NoteController;
 use App\Http\Controllers\Api\AbsenceController;
 use App\Http\Controllers\Api\ClasseController;
 use App\Http\Controllers\Api\ContactController;
+use App\Http\Controllers\Api\AdministrateurController; 
+use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/register', [AuthController::class, 'register']);
@@ -14,31 +16,36 @@ Route::post('/login', [AuthController::class, 'login']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
+    Route::post('/change-password', [AuthController::class, 'changePassword']);
 
-
-    Route::get('/enseignants/{id}', [EnseignantController::class, 'show']);
+    // Enseignants
+    Route::apiResource('/enseignants', EnseignantController::class)->only(['index', 'store', 'update', 'destroy']);
+    Route::get('/enseignants/{id}', [EnseignantController::class, 'show']); 
     Route::get('/enseignants/{id}/cours', [EnseignantController::class, 'cours']);
 
-    Route::apiResource('/etudiants', EtudiantController::class);
+    // Étudiants
+    Route::apiResource('/etudiants', EtudiantController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
     Route::get('/etudiants/{id}/notes', [NoteController::class, 'getNotesByEtudiant']);
     Route::get('/etudiants/{id}/absences', [AbsenceController::class, 'getAbsencesByEtudiant']);
-
-    Route::apiResource('/classes', ClasseController::class);
-    Route::put('/classes/{id}/assign-teacher', [ClasseController::class, 'assignTeacher']);
-    Route::apiResource('/notes', NoteController::class);
-    Route::apiResource('/absences', AbsenceController::class);
-    Route::delete('/notes/{id}', [NoteController::class, 'destroy']);
-    Route::delete('/absences/{id}', [AbsenceController::class, 'destroy']);
-    Route::get('/enseignants', [EnseignantController::class, 'index']);
-    Route::get('/enseignants', [EnseignantController::class, 'index']);
     Route::get('/etudiants/{etudiantId}/notes/matiere', [NoteController::class, 'getNotesByEtudiantAndMatiere']);
 
-    Route::post('/contact', [ContactController::class, 'store']);
+    // Classes
+    Route::apiResource('/classes', ClasseController::class);
+    Route::put('/classes/{id}/assign-teacher', [ClasseController::class, 'assignTeacher']);
 
+    // Notes et Absences 
+    Route::apiResource('/notes', NoteController::class);
+    Route::apiResource('/absences', AbsenceController::class);
+
+    // Contacts (message du formulaire)
+    Route::get('/contacts', [ContactController::class, 'index']);
+    Route::post('/contacts', [ContactController::class, 'store']);  
+    Route::delete('/contacts/{id}', [ContactController::class, 'destroy']);
+    Route::post('/contacts', [ContactController::class, 'store']);
+
+    // Administrateurs
+    Route::apiResource('/administrateurs', AdministrateurController::class)->only(['index', 'store', 'update', 'destroy']);
+
+
+    Route::get('/users/no-role', [UserController::class, 'noRole']);
 });
-
-
-Route::middleware('auth:sanctum')->group(function () {
-    Route::post('/logout', [AuthController::class, 'logout']);
-});
-Route::middleware('auth:sanctum')->post('/change-password', [App\Http\Controllers\Api\AuthController::class, 'changePassword']);

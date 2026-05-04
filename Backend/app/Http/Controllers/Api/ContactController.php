@@ -28,4 +28,16 @@ class ContactController extends Controller
 
         return response()->json(['message' => 'Message envoyé avec succès', 'contact' => $contact], 201);
     }
+    public function index()
+    {
+        $contacts = Contact::orderBy('created_at', 'desc')->get();
+        return response()->json($contacts);
+    }
+
+    public function destroy($id)
+    {
+        $contact = Contact::findOrFail($id);
+        $contact->delete();
+        return response()->json(['message' => 'Message supprimé']);
+    }
 }

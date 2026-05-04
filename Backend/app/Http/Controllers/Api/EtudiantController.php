@@ -7,12 +7,13 @@ use App\Models\Etudiant;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
 
 class EtudiantController extends Controller
 {
 public function index(Request $request)
     {
-        $query = Etudiant::with('classe');
+        $query = Etudiant::with(['classe', 'user']);
         if ($request->has('classe_id')) {
             $query->where('classe_id', $request->classe_id);
         }
@@ -22,51 +23,66 @@ public function index(Request $request)
 
     public function store(Request $request)
     {
-        $request->validate([
-            'nom' => 'required|string|max:255',
-            'prenom' => 'required|string|max:255',
-            'date_naissance' => 'required|date',
-            'email' => 'required|email|unique:users',
-            'password' => 'required|string|min:6',
-            'classe_id' => 'required|exists:classes,id',
-        ]);
+        $data = $request->all();
+        if (isset($data['date_naissance']) && $data['date_naissance'] === '') {
+            $data['date_naissance'] = null;
+        }
 
-        $user = User::create([
-            'name' => $request->nom . ' ' . $request->prenom,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-        ]);
+        $rules = [
+            'user_id' => 'nullable|exists:users,id',
+            'nom' => 'required|string',
+            'prenom' => 'required|string',
+            'date_naissance' => 'nullable|date',
+            'classe_id' => 'required|exists:classes,id',
+            'email' => 'required_without:user_id|email|unique:users',
+            'password' => 'required_without:user_id|min:6',
+        ];
+
+        $validator = Validator::make($data, $rules);
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        if ($request->filled('user_id')) {
+            $user = User::find($request->user_id);
+            if (!$user) return response()->json(['message' => 'Utilisateur non trouvé'], 404);
+        } else {
+            $user = User::create([
+                'name' => $request->nom . ' ' . $request->prenom,
+                'email' => $request->email,
+                'password' => Hash::make($request->password),
+            ]);
+        }
 
         $etudiant = Etudiant::create([
             'user_id' => $user->id,
             'nom' => $request->nom,
             'prenom' => $request->prenom,
-            'date_naissance' => $request->date_naissance,
+            'date_naissance' => $data['date_naissance'],
             'classe_id' => $request->classe_id,
         ]);
 
-        return response()->json($etudiant->load(['user', 'classe']), 201);
+        return response()->json($etudiant->load('user', 'classe'), 201);
     }
-
-public function show($id)
-{
-    try {
-        $etudiant = Etudiant::with(['classe', 'user'])->find($id);
-        if (!$etudiant) {
-            return response()->json(['message' => 'Étudiant non trouvé'], 404);
+    public function show($id)
+    {
+        try {
+            $etudiant = Etudiant::with(['classe', 'user'])->find($id);
+            if (!$etudiant) {
+                return response()->json(['message' => 'Étudiant non trouvé'], 404);
+            }
+            return response()->json([
+                'id' => $etudiant->id,
+                'nom' => $etudiant->nom,
+                'prenom' => $etudiant->prenom,
+                'date_naissance' => $etudiant->date_naissance,
+                'classe' => $etudiant->classe ? ['nom' => $etudiant->classe->nom] : null,
+                'user' => $etudiant->user ? ['email' => $etudiant->user->email] : null,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
         }
-        return response()->json([
-            'id' => $etudiant->id,
-            'nom' => $etudiant->nom,
-            'prenom' => $etudiant->prenom,
-            'date_naissance' => $etudiant->date_naissance,
-            'classe' => $etudiant->classe ? ['nom' => $etudiant->classe->nom] : null,
-            'user' => $etudiant->user ? ['email' => $etudiant->user->email] : null,
-        ]);
-    } catch (\Exception $e) {
-        return response()->json(['error' => $e->getMessage()], 500);
     }
-}
 
     public function update(Request $request, $id)
     {

@@ -1,4 +1,4 @@
-// src/pages/Enseignant/EnseignantDashboard.jsx
+// src/pages/EnseignantDashboard.jsx
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../Api/Api';
@@ -22,7 +22,8 @@ import {
   Edit,
   Trash2,
   User,
-  Key
+  Key,
+  Printer
 } from 'lucide-react';
 
 export default function EnseignantDashboard() {
@@ -58,7 +59,8 @@ export default function EnseignantDashboard() {
   const [absenceForm, setAbsenceForm] = useState({
     etudiant_id: '',
     date: new Date().toISOString().split('T')[0],
-    nb_heures: 1
+    nb_heures: 1,
+    justifiee: false
   });
   const [noteForm, setNoteForm] = useState({
     etudiant_id: '',
@@ -111,7 +113,8 @@ export default function EnseignantDashboard() {
 
       try {
         const resClasses = await api.get('/classes');
-        setClasses(resClasses.data);
+        const filtered = resClasses.data;
+        setClasses(filtered);
       } catch (error) { console.error(error); }
 
       try {
@@ -193,7 +196,8 @@ export default function EnseignantDashboard() {
     setAbsenceForm({
       etudiant_id: etudiant.id,
       date: new Date().toISOString().split('T')[0],
-      nb_heures: 1
+      nb_heures: 1,
+      justifiee: false
     });
     setShowAbsenceModal(true);
   };
@@ -203,7 +207,8 @@ export default function EnseignantDashboard() {
     setAbsenceForm({
       etudiant_id: absence.etudiant_id,
       date: absence.date.split('T')[0],
-      nb_heures: absence.nb_heures
+      nb_heures: absence.nb_heures,
+      justifiee: absence.justifiee
     });
     setShowAbsenceModal(true);
   };
@@ -211,16 +216,11 @@ export default function EnseignantDashboard() {
   const handleAbsenceSubmit = async (e) => {
     e.preventDefault();
     try {
-      const payload = {
-        etudiant_id: absenceForm.etudiant_id,
-        date: absenceForm.date,
-        nb_heures: parseFloat(absenceForm.nb_heures)
-      };
       if (currentAbsence) {
-        await api.put(`/absences/${currentAbsence.id}`, payload);
+        await api.put(`/absences/${currentAbsence.id}`, absenceForm);
         setMessage({ text: 'Absence modifiée', type: 'success' });
       } else {
-        await api.post('/absences', { ...payload, justifiee: false });
+        await api.post('/absences', absenceForm);
         setMessage({ text: 'Absence ajoutée', type: 'success' });
       }
       const res = await api.get('/absences');
@@ -309,13 +309,118 @@ export default function EnseignantDashboard() {
     }
   };
 
+  // ---------- Impression d'un seul document avec tous les étudiants de la classe ----------
+  const printAllStudentReports = (classe) => {
+    const classStudents = etudiants.filter(e => e.classe_id === classe.id);
+    if (classStudents.length === 0) {
+      alert('Aucun étudiant dans cette classe.');
+      return;
+    }
+
+    // Construire les lignes du tableau : une ligne par (étudiant, matière)
+    let rows = [];
+    classStudents.forEach(etudiant => {
+      const studentNotes = notes.filter(n => n.etudiant_id === etudiant.id);
+      if (studentNotes.length === 0) {
+        rows.push({ nom: `${etudiant.nom} ${etudiant.prenom}`, matiere: 'Aucune note', note: '-' });
+      } else {
+        studentNotes.forEach(n => {
+          rows.push({ nom: `${etudiant.nom} ${etudiant.prenom}`, matiere: n.matiere, note: n.note });
+        });
+      }
+    });
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Relevé de notes - ${classe.nom}</title>
+      <meta charset="UTF-8">
+      <style>
+        body {
+          font-family: 'Segoe UI', Arial, sans-serif;
+          margin: 30px;
+        }
+        .header {
+          text-align: center;
+          margin-bottom: 30px;
+        }
+        .school-name {
+          font-size: 24px;
+          font-weight: bold;
+          color: #4f46e5;
+        }
+        .title {
+          font-size: 20px;
+          font-weight: bold;
+          margin: 5px 0;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-top: 20px;
+        }
+        th, td {
+          border: 1px solid #ccc;
+          padding: 10px;
+          text-align: left;
+        }
+        th {
+          background-color: #f3f4f6;
+          font-weight: bold;
+        }
+        .footer {
+          margin-top: 30px;
+          text-align: center;
+          font-size: 12px;
+          color: #666;
+          border-top: 1px solid #ccc;
+          padding-top: 10px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <div class="school-name"> Mon Établissement Scolaire</div>
+        <div class="title">Relevé de notes - ${classe.nom} ${classe.niveau ? `(${classe.niveau})` : ''}</div>
+        <div class="title">Matière : ${enseignant?.matiere || 'N/A'}</div>
+        <div>Année scolaire 2025/2026</div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Étudiant</th>
+            <th>Note /20</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(row => `
+            <tr>
+              <td>${row.nom}</td>
+              <td>${row.note !== '-' ? row.note + '/20' : '-'}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+      <div class="footer">
+        Document généré le ${new Date().toLocaleDateString()} - Cachet de l'établissement
+      </div>
+    </body>
+    </html>
+  `);
+    printWindow.document.close();
+    printWindow.print();
+  };
+
   // ---------- Classes ----------
   const handleCreateClasse = async (e) => {
     e.preventDefault();
     try {
       await api.post('/classes', newClasse);
       const res = await api.get('/classes');
-      setClasses(res.data);
+      const filtered = res.data.filter(c => c.enseignant_id === parseInt(id));
+      setClasses(filtered);
       setShowCreateClasseModal(false);
       setNewClasse({ nom: '', niveau: '', enseignant_id: parseInt(id) });
       setMessage({ text: 'Classe créée', type: 'success' });
@@ -330,11 +435,13 @@ export default function EnseignantDashboard() {
     ? etudiants.filter(e => e.classe_id === selectedClasse.id)
     : [];
 
+  const getNotesForEtudiant = (etudiantId) => notes.filter(n => n.etudiant_id === etudiantId);
   const getAbsencesForEtudiant = (etudiantId) => absences.filter(a => a.etudiant_id === etudiantId);
-  
-  // Filtrer les notes de l'enseignant (sa matière) – version insensible à la casse
-  const mesNotes = notes.filter(n => n.matiere?.toLowerCase().trim() === enseignant?.matiere?.toLowerCase().trim());
   const mesAbsences = absences.filter(a => a.enseignant_id === parseInt(id));
+  const mesNotes = notes.filter(n => {
+    if (!enseignant?.matiere) return false;
+    return n.matiere?.trim().toLowerCase() === enseignant.matiere.trim().toLowerCase();
+  });
 
   if (!enseignant) {
     return (
@@ -361,7 +468,7 @@ export default function EnseignantDashboard() {
         </div>
       )}
 
-      {/* Navbar */}
+      {/* Navbar  */}
       <nav className="bg-white dark:bg-gray-800 shadow-md sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
@@ -375,8 +482,8 @@ export default function EnseignantDashboard() {
                   key={item.id}
                   onClick={() => setActiveTab(item.id)}
                   className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${activeTab === item.id
-                      ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300'
-                      : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300'
+                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                     }`}
                 >
                   <item.icon className="h-4 w-4" /> {item.label}
@@ -385,7 +492,7 @@ export default function EnseignantDashboard() {
             </div>
             <div className="flex items-center gap-3">
               <button onClick={toggleDarkMode} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
-                {isDarkMode ? <Sun className="h-5 w-5 text-yellow-500" /> : <Moon className="h-5 w-5 text-gray-600" />}
+                {isDarkMode ? <Sun className="h-5 w-5 text-yellow-500" /> : <Moon className="h-5 w-5 text-gray-600 dark:text-gray-300" />}
               </button>
               <div className="relative">
                 <button onClick={() => setIsUserMenuOpen(!isUserMenuOpen)} className="flex items-center gap-2">
@@ -401,7 +508,7 @@ export default function EnseignantDashboard() {
                       <p className="text-sm font-medium text-gray-800 dark:text-white">{user?.name}</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user?.email}</p>
                     </div>
-                    <button onClick={handleLogout} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
+                    <button onClick={handleLogout} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 flex items-center gap-2">
                       <LogOut className="h-4 w-4" /> Déconnexion
                     </button>
                   </div>
@@ -409,7 +516,7 @@ export default function EnseignantDashboard() {
               </div>
             </div>
           </div>
-          <div className="md:hidden flex flex-wrap gap-2 py-2 border-t">
+          <div className="md:hidden flex flex-wrap gap-2 py-2 border-t dark:border-gray-700">
             {navItems.map(item => (
               <button
                 key={item.id}
@@ -425,30 +532,30 @@ export default function EnseignantDashboard() {
       </nav>
 
       <main className="max-w-7xl mx-auto px-4 py-8">
-        {/* ONGLET TABLEAU DE BORD */}
+        {/* Tableau de bord*/}
         {activeTab === 'overview' && (
           <div>
             <div className="bg-gradient-to-r from-rose-500 to-pink-600 rounded-2xl p-6 text-white mb-6">
               <h2 className="text-2xl font-bold">Tableau de bord</h2>
               <p className="text-rose-100">Vue d’ensemble de votre activité</p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 hover:shadow-2xl transition">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
                 <GraduationCap className="h-8 w-8 text-indigo-500 mb-2" />
                 <p className="text-2xl font-bold text-gray-800 dark:text-white">{classes.length}</p>
                 <p className="text-gray-600 dark:text-gray-300">Classes</p>
               </div>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 hover:shadow-2xl transition">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
                 <Users className="h-8 w-8 text-indigo-500 mb-2" />
                 <p className="text-2xl font-bold text-gray-800 dark:text-white">{etudiants.length}</p>
                 <p className="text-gray-600 dark:text-gray-300">Étudiants</p>
               </div>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 hover:shadow-2xl transition">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
                 <BookOpen className="h-8 w-8 text-indigo-500 mb-2" />
                 <p className="text-2xl font-bold text-gray-800 dark:text-white">{mesNotes.length}</p>
                 <p className="text-gray-600 dark:text-gray-300">Notes saisies</p>
               </div>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 hover:shadow-2xl transition">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
                 <CalendarX className="h-8 w-8 text-indigo-500 mb-2" />
                 <p className="text-2xl font-bold text-gray-800 dark:text-white">{mesAbsences.length}</p>
                 <p className="text-gray-600 dark:text-gray-300">Absences</p>
@@ -457,7 +564,7 @@ export default function EnseignantDashboard() {
           </div>
         )}
 
-        {/* ONGLET MON PROFIL */}
+        {/* Mon profil */}
         {activeTab === 'profil' && (
           <div className="space-y-6">
             <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-6 text-white mb-6">
@@ -509,62 +616,52 @@ export default function EnseignantDashboard() {
           </div>
         )}
 
-        {/* ONGLET MES CLASSES */}
+        {/* Mes classes */}
         {activeTab === 'classes' && (
           <div>
             <div className="bg-gradient-to-r from-emerald-500 to-green-600 rounded-2xl p-6 text-white mb-6">
               <h2 className="text-2xl font-bold">Mes classes</h2>
               <p className="text-emerald-100">Liste des classes et étudiants</p>
             </div>
-            {classes.length === 0 ? (
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 text-center">
-                <p className="text-gray-500 dark:text-gray-400">Aucune classe affectée pour le moment.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {classes.map(classe => (
-                  <div key={classe.id} className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl hover:shadow-2xl transition">
-                    <div
-                      className="p-6 cursor-pointer"
-                      onClick={() => setSelectedClasse(selectedClasse?.id === classe.id ? null : classe)}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h4 className="text-xl font-bold text-gray-800 dark:text-white">{classe.nom}</h4>
-                          <p className="text-gray-500 dark:text-gray-400">Niveau : {classe.niveau || 'Non défini'}</p>
-                          <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
-                            {etudiants.filter(e => e.classe_id === classe.id).length} étudiants
-                          </p>
-                        </div>
-                        <div className="bg-indigo-100 dark:bg-indigo-900 p-2 rounded-full">
-                          <Eye className="h-5 w-5 text-indigo-600 dark:text-indigo-300" />
-                        </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {classes.map(classe => (
+                <div key={classe.id} className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl hover:shadow-2xl transition">
+                  <div
+                    className="p-6 cursor-pointer"
+                    onClick={() => setSelectedClasse(selectedClasse?.id === classe.id ? null : classe)}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h4 className="text-xl font-bold text-gray-800 dark:text-white">{classe.nom}</h4>
+                        <p className="text-gray-500 dark:text-gray-400">Niveau : {classe.niveau || 'Non défini'}</p>
+                        <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
+                          {etudiants.filter(e => e.classe_id === classe.id).length} étudiants
+                        </p>
+                      </div>
+                      <div className="bg-indigo-100 dark:bg-indigo-900 p-2 rounded-full">
+                        <Eye className="h-5 w-5 text-indigo-600 dark:text-indigo-300" />
                       </div>
                     </div>
-                    {selectedClasse?.id === classe.id && (
-                      <div className="border-t p-4 bg-gray-50 dark:bg-gray-700/30">
-                        <h5 className="font-semibold mb-3 text-gray-800 dark:text-white">Étudiants</h5>
-                        {etudiants.filter(e => e.classe_id === classe.id).length === 0 ? (
-                          <p className="text-gray-500 dark:text-gray-400">Aucun étudiant dans cette classe.</p>
-                        ) : (
-                          <div className="space-y-2">
-                            {etudiants.filter(e => e.classe_id === classe.id).map(etudiant => (
-                              <div key={etudiant.id} className="p-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
-                                <p className="font-medium text-gray-800 dark:text-white">{etudiant.nom} {etudiant.prenom}</p>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
-                ))}
-              </div>
-            )}
+                  {selectedClasse?.id === classe.id && (
+                    <div className="border-t p-4 bg-gray-50 dark:bg-gray-700/30">
+                      <h5 className="font-semibold mb-3 text-gray-800 dark:text-white">Étudiants</h5>
+                      <div className="space-y-2">
+                        {etudiants.filter(e => e.classe_id === classe.id).map(etudiant => (
+                          <div key={etudiant.id} className="p-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+                            <p className="font-medium text-gray-800 dark:text-white">{etudiant.nom} {etudiant.prenom}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
-        {/* ONGLET NOTES */}
+        {/* Notes – avec impression de tous les notes de classe*/}
         {activeTab === 'notes' && (
           <div>
             <div className="bg-gradient-to-r from-green-500 to-teal-600 rounded-2xl p-6 text-white mb-6">
@@ -572,6 +669,7 @@ export default function EnseignantDashboard() {
               <p className="text-green-100">Saisir, modifier ou supprimer les notes de vos étudiants</p>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Colonne gauche : classes + étudiants */}
               <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
                 <h4 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Choisir une classe</h4>
                 {classes.map(classe => (
@@ -585,6 +683,15 @@ export default function EnseignantDashboard() {
                     </button>
                     {selectedClasse?.id === classe.id && (
                       <div className="border-t p-4 bg-gray-50 dark:bg-gray-700/30">
+                        <div className="flex justify-between items-center mb-4">
+                          <h4 className="text-lg font-semibold text-gray-800 dark:text-white">Étudiants</h4>
+                          <button
+                            onClick={() => printAllStudentReports(selectedClasse)}
+                            className="bg-blue-600 text-white px-3 py-1 rounded text-sm flex items-center gap-1"
+                          >
+                            <Printer size={14} /> Imprimer le relevé
+                          </button>
+                        </div>
                         {etudiantsParClasse.map(etudiant => (
                           <div
                             key={etudiant.id}
@@ -608,6 +715,7 @@ export default function EnseignantDashboard() {
                 ))}
               </div>
 
+              {/* Colonne droite : notes de l'étudiant sélectionné */}
               <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
                 <h4 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
                   {selectedEtudiantNotes
@@ -644,7 +752,7 @@ export default function EnseignantDashboard() {
           </div>
         )}
 
-        {/* ONGLET ABSENCES */}
+        {/* Absences */}
         {activeTab === 'absences' && (
           <div>
             <div className="bg-gradient-to-r from-orange-500 to-red-600 rounded-2xl p-6 text-white mb-6">
@@ -761,6 +869,7 @@ export default function EnseignantDashboard() {
               <input type="text" readOnly value={`${currentEtudiant.nom} ${currentEtudiant.prenom}`} className="w-full border rounded-lg p-2 bg-gray-100 dark:bg-gray-700 dark:text-white" />
               <input type="date" value={absenceForm.date} onChange={e => setAbsenceForm({ ...absenceForm, date: e.target.value })} className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" required />
               <input type="number" step="0.5" value={absenceForm.nb_heures} onChange={e => setAbsenceForm({ ...absenceForm, nb_heures: parseFloat(e.target.value) })} className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" required />
+              <label className="flex items-center gap-2 text-gray-700 dark:text-gray-200"><input type="checkbox" checked={absenceForm.justifiee} onChange={e => setAbsenceForm({ ...absenceForm, justifiee: e.target.checked })} /> Justifiée</label>
               <div className="flex justify-end gap-3">
                 <button type="button" onClick={() => setShowAbsenceModal(false)} className="px-4 py-2 bg-gray-300 dark:bg-gray-600 rounded-lg">Annuler</button>
                 <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-lg">Enregistrer</button>

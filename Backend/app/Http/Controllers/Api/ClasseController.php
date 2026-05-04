@@ -8,17 +8,19 @@ use Illuminate\Http\Request;
 
 class ClasseController extends Controller
 {
-public function index()
-{
-    $user = auth()->user();
-    $enseignant = $user->enseignant;
-    if ($enseignant) {
-        $classes = $enseignant->classes()->withCount('etudiants')->get();
-    } else {
-        $classes = Classe::withCount('etudiants')->get();
+    public function index()
+    {
+        $user = auth()->user();
+        $enseignant = $user->enseignant;
+        if ($enseignant) {
+            // Enseignant : ses propres classes avec relation enseignants (si besoin)
+            $classes = $enseignant->classes()->with('enseignants')->withCount('etudiants')->get();
+        } else {
+            // Administrateur : toutes les classes avec leurs enseignants
+            $classes = Classe::with('enseignants')->withCount('etudiants')->get();
+        }
+        return response()->json($classes);
     }
-    return response()->json($classes);
-}
 
     public function store(Request $request)
     {
@@ -69,15 +71,15 @@ public function index()
         return response()->json(['message' => 'Classe supprimée']);
     }
     public function assignTeacher(Request $request, $id)
-{
-    $request->validate([
-        'enseignant_id' => 'required|exists:enseignants,id',
-    ]);
+    {
+        $classe = Classe::findOrFail($id);
+        $request->validate([
+            'enseignant_id' => 'required|exists:enseignants,id'
+        ]);
 
-    $classe = Classe::findOrFail($id);
-    $classe->enseignant_id = $request->enseignant_id;
-    $classe->save();
+        // Remplace l’ensemble des enseignants par celui-ci (une classe peut avoir plusieurs enseignants, mais pour simplifier on en affecte un seul)
+        $classe->enseignants()->sync([$request->enseignant_id]);
 
-    return response()->json($classe->load('enseignant'));
-}
+        return response()->json($classe->load('enseignants'));
+    }
 }

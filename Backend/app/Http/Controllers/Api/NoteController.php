@@ -82,17 +82,17 @@ public function index()
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
-public function getNotesByEtudiantAndMatiere($etudiantId)
-{
-    $enseignant = auth()->user()->enseignant;
-    if (!$enseignant) {
-        return response()->json(['message' => 'Non autorisé'], 403);
+    public function getNotesByEtudiantAndMatiere($etudiantId)
+    {
+        $enseignant = auth()->user()->enseignant;
+        if (!$enseignant) {
+            return response()->json(['message' => 'Non autorisé'], 403);
+        }
+
+        $notes = Note::where('etudiant_id', $etudiantId)
+                    ->where('matiere', $enseignant->matiere)
+                    ->get(['id', 'etudiant_id', 'matiere', 'note']);
+
+        return response()->json($notes);
     }
-
-    $notes = Note::where('etudiant_id', $etudiantId)
-                 ->where('matiere', $enseignant->matiere)
-                 ->get(['id', 'etudiant_id', 'matiere', 'note']);
-
-    return response()->json($notes);
-}
 }

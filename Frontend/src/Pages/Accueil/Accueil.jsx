@@ -45,7 +45,7 @@ export default function Dashboard() {
     setSending(true);
     setContactStatus({ type: '', message: '' });
     try {
-      await api.post('/contact', contactForm);
+      await api.post('/contacts', contactForm);
       setContactStatus({ type: 'success', message: 'Votre message a bien été envoyé.' });
       setContactForm({ sujet: '', message: '' });
     } catch (error) {
