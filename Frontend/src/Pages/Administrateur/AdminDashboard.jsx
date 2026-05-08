@@ -7,7 +7,7 @@ import {
   CheckCircle, XCircle, Eye, Printer, UserPlus, ChevronRight
 } from 'lucide-react';
 
-// Composants memo pour les notes et absences (performances)
+// Composants memo optimisés
 const StudentNotesList = React.memo(({ notes, onEdit, onDelete }) => {
   if (notes.length === 0) return <p className="text-sm text-gray-500 dark:text-gray-400">Aucune note</p>;
   return (
@@ -38,8 +38,8 @@ const StudentAbsencesList = React.memo(({ absences, onEdit, onDelete, formatDate
               {enseignant && <span className="ml-2 text-gray-600 dark:text-gray-400">({enseignant.nom} - {enseignant.matiere})</span>}
             </div>
             <div className="flex gap-2">
-              <button onClick={() => onEdit(a)} className="text-blue-500 dark:text-blue-400"><Edit size={14}/></button>
-              <button onClick={() => onDelete(a.id)} className="text-red-500 dark:text-red-400"><Trash2 size={14}/></button>
+              <button onClick={() => onEdit(a)} className="text-blue-500 dark:text-blue-400"><Edit size={14} /></button>
+              <button onClick={() => onDelete(a.id)} className="text-red-500 dark:text-red-400"><Trash2 size={14} /></button>
             </div>
           </div>
         );
@@ -81,7 +81,7 @@ export default function AdminDashboard() {
   const [userModalType, setUserModalType] = useState('');
   const [currentUser, setCurrentUser] = useState(null);
   const [selectedExistingUser, setSelectedExistingUser] = useState('');
-  const [userForm, setUserForm] = useState({ nom: '', prenom: '', email: '', password: '', matiere: '', classe_id: '', date_naissance: '' });
+  const [userForm, setUserForm] = useState({ nom: '', prenom: '', email: '', password: '', matiere: '', coefficient: 1, classe_id: '', date_naissance: '' });
   const [classeForm, setClasseForm] = useState({ nom: '', niveau: '' });
   const [currentClasse, setCurrentClasse] = useState(null);
   const [noteForm, setNoteForm] = useState({ etudiant_id: '', matiere: '', note: '' });
@@ -171,7 +171,7 @@ export default function AdminDashboard() {
     setUserModalType(type);
     setCurrentUser(null);
     setSelectedExistingUser('');
-    setUserForm({ nom: '', prenom: '', email: '', password: '', matiere: '', classe_id: '', date_naissance: '' });
+    setUserForm({ nom: '', prenom: '', email: '', password: '', matiere: '', coefficient: 1, classe_id: '', date_naissance: '' });
     setShowUserModal(true);
   };
   const openEditUser = (type, userData) => {
@@ -185,28 +185,29 @@ export default function AdminDashboard() {
         email: userData.user?.email || '',
         password: '',
         matiere: '',
+        coefficient: 1,
         classe_id: userData.classe_id || '',
         date_naissance: userData.date_naissance || ''
       });
     } else if (type === 'enseignant') {
-      const nameParts = userData.user?.name?.split(' ') || ['', ''];
       setUserForm({
-        nom: nameParts[1] || '',
-        prenom: nameParts[0] || '',
+        nom: userData.user?.name || userData.nom || '',
+        prenom: '',
         email: userData.user?.email || '',
         password: '',
         matiere: userData.matiere || '',
+        coefficient: userData.coefficient || 1,
         classe_id: '',
         date_naissance: ''
       });
-    } else {
-      const nameParts = userData.user?.name?.split(' ') || ['', ''];
+    } else { // admin
       setUserForm({
-        nom: nameParts[0] || '',
-        prenom: nameParts[1] || '',
+        nom: userData.user?.name || '',
+        prenom: '',
         email: userData.user?.email || '',
         password: '',
         matiere: '',
+        coefficient: 1,
         classe_id: '',
         date_naissance: ''
       });
@@ -225,7 +226,7 @@ export default function AdminDashboard() {
           payload = { user_id: existingUser.id, nom: userForm.nom, prenom: userForm.prenom, date_naissance: userForm.date_naissance || null, classe_id: userForm.classe_id };
         } else if (userModalType === 'enseignant') {
           endpoint = '/enseignants';
-          payload = { user_id: existingUser.id, nom: userForm.nom, matiere: userForm.matiere };
+          payload = { user_id: existingUser.id, nom: userForm.nom, matiere: userForm.matiere, coefficient: userForm.coefficient };
         } else {
           endpoint = '/administrateurs';
           payload = { user_id: existingUser.id };
@@ -238,10 +239,10 @@ export default function AdminDashboard() {
           payload = { nom: userForm.nom, prenom: userForm.prenom, email: userForm.email, password: userForm.password, date_naissance: userForm.date_naissance || null, classe_id: userForm.classe_id };
         } else if (userModalType === 'enseignant') {
           endpoint = '/enseignants';
-          payload = { nom: userForm.nom, prenom: userForm.prenom, email: userForm.email, password: userForm.password, matiere: userForm.matiere };
+          payload = { nom: userForm.nom, email: userForm.email, password: userForm.password, matiere: userForm.matiere, coefficient: userForm.coefficient };
         } else {
           endpoint = '/administrateurs';
-          payload = { nom: userForm.nom, prenom: userForm.prenom, email: userForm.email, password: userForm.password };
+          payload = { nom: userForm.nom, email: userForm.email, password: userForm.password };
         }
         if (currentUser) await api.put(`${endpoint}/${currentUser.id}`, payload);
         else await api.post(endpoint, payload);
@@ -335,76 +336,228 @@ export default function AdminDashboard() {
       return;
     }
     const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert("Impossible d'ouvrir la fenêtre d'impression. Veuillez autoriser les popups.");
+      return;
+    }
+
     let htmlContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Bulletins - ${classe.nom}</title>
-        <meta charset="UTF-8">
-        <style>
-          @page { size: A4; margin: 2cm; }
-          body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 0; background: #f0f2f5; }
-          .page { page-break-after: always; min-height: 100vh; padding: 20px; background: white; margin: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); border-radius: 12px; }
-          .page:last-child { page-break-after: auto; }
-          .header { text-align: center; margin-bottom: 30px; border-bottom: 3px solid #4f46e5; padding-bottom: 15px; }
-          .school-name { font-size: 28px; font-weight: bold; color: #4f46e5; }
-          .title { font-size: 22px; font-weight: bold; margin-top: 10px; }
-          .info-section { background: linear-gradient(135deg, #f9fafb 0%, #ffffff 100%); padding: 20px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #e5e7eb; }
-          .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
-          .info-item { font-size: 14px; }
-          .info-label { font-weight: bold; color: #4b5563; }
-          table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-          th, td { border: 1px solid #e5e7eb; padding: 10px; text-align: left; }
-          th { background-color: #f3f4f6; font-weight: bold; }
-          .general-moy { margin-top: 20px; text-align: right; font-size: 16px; font-weight: bold; padding: 10px; background: #e0e7ff; border-radius: 8px; }
-          .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #9ca3af; border-top: 1px solid #e5e7eb; padding-top: 15px; }
-          @media print { body { background: white; } .page { margin: 0; box-shadow: none; border-radius: 0; } }
-        </style>
-      </head>
-      <body>
-    `;
-    classStudents.forEach((etudiant) => {
-      const studentNotes = notes.filter(n => n.etudiant_id === etudiant.id);
-      const matieres = [...new Set(studentNotes.map(n => n.matiere))];
-      let matieresWithData = matieres.map(m => {
-        const notesMat = studentNotes.filter(n => n.matiere === m).map(n => parseFloat(n.note));
-        const moyenne = notesMat.length ? (notesMat.reduce((a,b)=>a+b,0) / notesMat.length).toFixed(2) : '-';
-        return { matiere: m, notes: notesMat, moyenne: moyenne };
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Bulletins - ${classe.nom}</title>
+      <meta charset="UTF-8">
+      <style>
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+        body {
+          font-family: 'Segoe UI', 'Times New Roman', Times, serif;
+          background: #e2e8f0;
+          padding: 30px;
+        }
+        .bulletin {
+          max-width: 1000px;
+          margin: 20px auto;
+          background: white;
+          border-radius: 20px;
+          box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
+          overflow: hidden;
+          page-break-after: always;
+        }
+        .bulletin:last-child {
+          page-break-after: auto;
+        }
+        .header {
+          background: linear-gradient(135deg, #1e293b, #0f172a);
+          color: white;
+          padding: 30px;
+          text-align: center;
+        }
+        .header h1 {
+          font-size: 28px;
+          letter-spacing: 2px;
+          margin-bottom: 5px;
+        }
+        .header p {
+          font-size: 14px;
+          opacity: 0.8;
+        }
+        .student-info {
+          background: #f8fafc;
+          padding: 20px 30px;
+          display: flex;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          border-bottom: 1px solid #e2e8f0;
+        }
+        .info-block {
+          margin: 5px 0;
+        }
+        .info-label {
+          font-weight: 600;
+          color: #475569;
+          font-size: 13px;
+        }
+        .info-value {
+          font-size: 16px;
+          font-weight: 500;
+          color: #0f172a;
+          margin-top: 2px;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: 20px 0;
+        }
+        th, td {
+          border: 1px solid #cbd5e1;
+          padding: 12px 8px;
+          text-align: center;
+        }
+        th {
+          background-color: #e2e8f0;
+          font-weight: 700;
+          color: #1e293b;
+          text-transform: uppercase;
+          font-size: 13px;
+        }
+        td {
+          font-size: 14px;
+        }
+        .matiere-cell {
+          text-align: left;
+          font-weight: 500;
+          background-color: #f1f5f9;
+        }
+        .moyenne-matiere {
+          font-weight: bold;
+          background-color: #e0f2fe;
+          color: #0369a1;
+        }
+        .general-moy {
+          text-align: right;
+          padding: 15px 30px;
+          background: #f1f5f9;
+          font-weight: bold;
+          font-size: 16px;
+          border-top: 1px solid #cbd5e1;
+        }
+        .footer {
+          padding: 15px;
+          text-align: center;
+          font-size: 11px;
+          color: #94a3b8;
+          background-color: #f8fafc;
+        }
+        @media print {
+          body {
+            background: white;
+            padding: 0;
+          }
+          .bulletin {
+            box-shadow: none;
+            margin: 0 auto;
+            border-radius: 0;
+            page-break-after: always;
+          }
+        }
+      </style>
+    </head>
+    <body>
+  `;
+
+    classStudents.forEach(etudiant => {
+      const etudiantNotes = notes.filter(n => n.etudiant_id === etudiant.id);
+      const notesByMatiere = {};
+      etudiantNotes.forEach(n => {
+        if (!notesByMatiere[n.matiere]) notesByMatiere[n.matiere] = {};
+        notesByMatiere[n.matiere][n.type_controle] = n.note;
       });
-      const moyenneGenerale = studentNotes.length ? (studentNotes.reduce((sum, n) => sum + parseFloat(n.note), 0) / studentNotes.length).toFixed(2) : null;
+
+      // Calcul des moyennes et de la moyenne générale
+      let totalNotes = 0;
+      let totalCoeffs = 0;
+      const matieresData = [];
+
+      for (const [matiere, controles] of Object.entries(notesByMatiere)) {
+        const note1 = controles['Contrôle 1'] || '-';
+        const note2 = controles['Contrôle 2'] || '-';
+        const note3 = controles['Contrôle 3'] || '-';
+        const notesValides = [note1, note2, note3].filter(n => n !== '-' && !isNaN(parseFloat(n)));
+        let moyenneMatiere = '-';
+        if (notesValides.length > 0) {
+          const somme = notesValides.reduce((a, b) => a + parseFloat(b), 0);
+          moyenneMatiere = (somme / notesValides.length).toFixed(2);
+          totalNotes += parseFloat(moyenneMatiere);
+          totalCoeffs++;
+        }
+        matieresData.push({ matiere, note1, note2, note3, moyenne: moyenneMatiere });
+      }
+      const moyenneGenerale = totalCoeffs > 0 ? (totalNotes / totalCoeffs).toFixed(2) : null;
+
       htmlContent += `
-        <div class="page">
-          <div class="header">
-            <div class="school-name"> Mon Établissement Scolaire</div>
-            <div class="title">BULLETIN DE NOTES</div>
-            <div>Année scolaire 2025/2026</div>
-          </div>
-          <div class="info-section">
-            <div class="info-grid">
-              <div class="info-item"><span class="info-label">Nom :</span> ${etudiant.nom || ''}</div>
-              <div class="info-item"><span class="info-label">Prénom :</span> ${etudiant.prenom || ''}</div>
-              <div class="info-item"><span class="info-label">Date de naissance :</span> ${etudiant.date_naissance || 'Non renseignée'}</div>
-              <div class="info-item"><span class="info-label">Classe :</span> ${classe.nom} ${classe.niveau ? `(${classe.niveau})` : ''}</div>
-            </div>
-          </div>
-          <h3 style="color:#4f46e5;">Résultats scolaires</h3>
-          <table>
-            <thead><tr><th>Matière</th><th>Notes</th><th>Moyenne /20</th></tr></thead>
-            <tbody>
-              ${matieresWithData.map(m => `
-                <tr>
-                  <td>${m.matiere}</td>
-                  <td>${m.notes.join(', ')}</td>
-                  <td class="subject-moy">${m.moyenne !== '-' ? m.moyenne + '/20' : '-'}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-          ${moyenneGenerale ? `<div class="general-moy">Moyenne générale : ${moyenneGenerale} / 20</div>` : ''}
-          <div class="footer">Document généré le ${new Date().toLocaleDateString()} - Cachet de l'établissement</div>
+      <div class="bulletin">
+        <div class="header">
+          <h1> Établissement Scolaire</h1>
+          <p>Année scolaire 2025/2026 - Relevé de notes</p>
         </div>
+        <div class="student-info">
+          <div class="info-block">
+            <div class="info-label">Nom complet</div>
+            <div class="info-value">${etudiant.nom} ${etudiant.prenom}</div>
+          </div>
+          <div class="info-block">
+            <div class="info-label">Date de naissance</div>
+            <div class="info-value">${etudiant.date_naissance || 'Non renseignée'}</div>
+          </div>
+          <div class="info-block">
+            <div class="info-label">Classe</div>
+            <div class="info-value">${classe.nom} ${classe.niveau ? `(${classe.niveau})` : ''}</div>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Matière</th>
+              <th>Contrôle 1</th>
+              <th>Contrôle 2</th>
+              <th>Contrôle 3</th>
+              <th>Moyenne /20</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+      matieresData.forEach(m => {
+        htmlContent += `
+        <tr>
+          <td class="matiere-cell">${m.matiere}</td>
+          <td>${m.note1 !== '-' ? m.note1 + '/20' : '-'}</td>
+          <td>${m.note2 !== '-' ? m.note2 + '/20' : '-'}</td>
+          <td>${m.note3 !== '-' ? m.note3 + '/20' : '-'}</td>
+          <td class="moyenne-matiere">${m.moyenne !== '-' ? m.moyenne + '/20' : '-'}</td>
+        </tr>
       `;
+      });
+
+      htmlContent += `
+          </tbody>
+        </table>
+        ${moyenneGenerale ? `
+        <div class="general-moy">
+          Moyenne générale : ${moyenneGenerale} / 20
+        </div>
+        ` : ''}
+        <div class="footer">
+          Document généré le ${new Date().toLocaleDateString()} - Cachet de l'établissement
+        </div>
+      </div>
+    `;
     });
+
     htmlContent += `</body></html>`;
     printWindow.document.write(htmlContent);
     printWindow.document.close();
@@ -477,9 +630,7 @@ export default function AdminDashboard() {
       setMessage({ text: 'Enseignant affecté', type: 'success' });
       setShowAssignModal(false);
       fetchAllData();
-    } catch (error) {
-      setMessage({ text: 'Erreur affectation', type: 'error' });
-    }
+    } catch (error) { setMessage({ text: 'Erreur affectation', type: 'error' }); }
   };
 
   const handleDeleteContact = async (id) => {
@@ -510,7 +661,6 @@ export default function AdminDashboard() {
     { id: 'absences', label: 'Absences', icon: CalendarX },
     { id: 'assign', label: 'Affectation', icon: UserPlus },
     { id: 'contacts', label: 'Messages', icon: Mail },
-
   ];
 
   if (loading && !classes.length) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div></div>;
@@ -580,25 +730,26 @@ export default function AdminDashboard() {
               <p className="text-indigo-100">Statistiques globales de la plateforme</p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {/* ... cartes existantes ... */}
               <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 transition-all hover:shadow-2xl">
                 <div className="flex items-center justify-between">
                   <div><p className="text-gray-500 dark:text-gray-400 text-sm">Utilisateurs</p><p className="text-3xl font-bold text-gray-800 dark:text-white">{etudiants.length + enseignants.length + administrateurs.length + usersNoRole.length}</p></div>
                   <div className="bg-indigo-100 dark:bg-indigo-900 p-3 rounded-full"><Users className="h-6 w-6 text-indigo-600 dark:text-indigo-400" /></div>
                 </div>
               </div>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 transition-all hover:shadow-2xl">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
                 <div className="flex items-center justify-between">
                   <div><p className="text-gray-500 dark:text-gray-400 text-sm">Étudiants</p><p className="text-3xl font-bold text-gray-800 dark:text-white">{etudiants.length}</p></div>
                   <div className="bg-blue-100 dark:bg-blue-900 p-3 rounded-full"><GraduationCap className="h-6 w-6 text-blue-600 dark:text-blue-400" /></div>
                 </div>
               </div>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 transition-all hover:shadow-2xl">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
                 <div className="flex items-center justify-between">
                   <div><p className="text-gray-500 dark:text-gray-400 text-sm">Enseignants</p><p className="text-3xl font-bold text-gray-800 dark:text-white">{enseignants.length}</p></div>
                   <div className="bg-green-100 dark:bg-green-900 p-3 rounded-full"><BookOpen className="h-6 w-6 text-green-600 dark:text-green-400" /></div>
                 </div>
               </div>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 transition-all hover:shadow-2xl">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
                 <div className="flex items-center justify-between">
                   <div><p className="text-gray-500 dark:text-gray-400 text-sm">Administrateurs</p><p className="text-3xl font-bold text-gray-800 dark:text-white">{administrateurs.length}</p></div>
                   <div className="bg-purple-100 dark:bg-purple-900 p-3 rounded-full"><Users className="h-6 w-6 text-purple-600 dark:text-purple-400" /></div>
@@ -606,25 +757,25 @@ export default function AdminDashboard() {
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 transition-all hover:shadow-2xl">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
                 <div className="flex items-center justify-between">
                   <div><p className="text-gray-500 dark:text-gray-400 text-sm">Classes</p><p className="text-3xl font-bold text-gray-800 dark:text-white">{classes.length}</p></div>
                   <div className="bg-emerald-100 dark:bg-emerald-900 p-3 rounded-full"><GraduationCap className="h-6 w-6 text-emerald-600 dark:text-emerald-400" /></div>
                 </div>
               </div>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 transition-all hover:shadow-2xl">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
                 <div className="flex items-center justify-between">
                   <div><p className="text-gray-500 dark:text-gray-400 text-sm">Notes saisies</p><p className="text-3xl font-bold text-gray-800 dark:text-white">{notes.length}</p></div>
                   <div className="bg-cyan-100 dark:bg-cyan-900 p-3 rounded-full"><BookOpen className="h-6 w-6 text-cyan-600 dark:text-cyan-400" /></div>
                 </div>
               </div>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 transition-all hover:shadow-2xl">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
                 <div className="flex items-center justify-between">
                   <div><p className="text-gray-500 dark:text-gray-400 text-sm">Absences</p><p className="text-3xl font-bold text-gray-800 dark:text-white">{absences.length}</p></div>
                   <div className="bg-orange-100 dark:bg-orange-900 p-3 rounded-full"><CalendarX className="h-6 w-6 text-orange-600 dark:text-orange-400" /></div>
                 </div>
               </div>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 transition-all hover:shadow-2xl">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
                 <div className="flex items-center justify-between">
                   <div><p className="text-gray-500 dark:text-gray-400 text-sm">Messages</p><p className="text-3xl font-bold text-gray-800 dark:text-white">{contacts.length}</p></div>
                   <div className="bg-pink-100 dark:bg-pink-900 p-3 rounded-full"><Mail className="h-6 w-6 text-pink-600 dark:text-pink-400" /></div>
@@ -674,18 +825,28 @@ export default function AdminDashboard() {
                   </table>
                 </div>
               </div>
-              {/* Enseignants */}
+
+              {/* Enseignants (sans prénom) */}
               <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
                 <div className="flex justify-between items-center mb-4"><h3 className="text-xl font-semibold dark:text-white">Enseignants</h3><button onClick={() => openAddUser('enseignant')} className="bg-green-500 text-white px-3 py-1 rounded flex gap-1"><Plus size={16} /> Ajouter</button></div>
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                    <thead className="bg-gray-50 dark:bg-gray-700"><tr><th className="px-4 py-2 text-left dark:text-white">Nom complet</th><th className="px-4 py-2 text-left dark:text-white">Email</th><th className="px-4 py-2 text-left dark:text-white">Matière</th><th className="px-4 py-2 dark:text-white">Actions</th></tr></thead>
+                    <thead className="bg-gray-50 dark:bg-gray-700">
+                      <tr>
+                        <th className="px-4 py-2 text-left dark:text-white">Nom</th>
+                        <th className="px-4 py-2 text-left dark:text-white">Email</th>
+                        <th className="px-4 py-2 text-left dark:text-white">Matière</th>
+                        <th className="px-4 py-2 text-left dark:text-white">Coefficient</th>
+                        <th className="px-4 py-2 dark:text-white">Actions</th>
+                      </tr>
+                    </thead>
                     <tbody>
                       {enseignants.map(e => (
                         <tr key={e.id} className="border-b dark:border-gray-700">
                           <td className="px-4 py-2 dark:text-gray-200">{e.user?.name || e.nom || '-'}</td>
                           <td className="px-4 py-2 dark:text-gray-200">{e.user?.email || '-'}</td>
                           <td className="px-4 py-2 dark:text-gray-200">{e.matiere || '-'}</td>
+                          <td className="px-4 py-2 dark:text-gray-200">{e.coefficient ?? 1}</td>
                           <td className="px-4 py-2 flex gap-2"><button onClick={() => openEditUser('enseignant', e)} className="text-blue-500"><Edit size={16} /></button><button onClick={() => handleDeleteUser('enseignant', e.id)} className="text-red-500"><Trash2 size={16} /></button></td>
                         </tr>
                       ))}
@@ -693,6 +854,7 @@ export default function AdminDashboard() {
                   </table>
                 </div>
               </div>
+
               {/* Administrateurs */}
               <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
                 <div className="flex justify-between items-center mb-4"><h3 className="text-xl font-semibold dark:text-white">Administrateurs</h3><button onClick={() => openAddUser('admin')} className="bg-green-500 text-white px-3 py-1 rounded flex gap-1"><Plus size={16} /> Ajouter</button></div>
@@ -711,6 +873,7 @@ export default function AdminDashboard() {
                   </table>
                 </div>
               </div>
+
               {/* Utilisateurs sans rôle */}
               <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
                 <h3 className="text-xl font-semibold mb-4 dark:text-white">Utilisateurs sans rôle (à assigner)</h3>
@@ -737,7 +900,7 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* ========== ONGLET CLASSES ========== */}
+        {/* ========== ONGLET CLASSES (avec tableau des contrôles) ========== */}
         {activeTab === 'classes' && (
           <div>
             <div className="bg-gradient-to-r from-emerald-500 to-green-600 rounded-2xl p-6 text-white mb-6">
@@ -745,22 +908,40 @@ export default function AdminDashboard() {
               <p>Liste des classes et étudiants</p>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
-              <div className="flex justify-between items-center mb-4"><button onClick={openAddClasse} className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded flex gap-1 transition"><Plus size={16} /> Nouvelle classe</button></div>
+              <div className="flex justify-between items-center mb-4">
+                <button onClick={openAddClasse} className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded flex gap-1">
+                  <Plus size={16} /> Nouvelle classe
+                </button>
+              </div>
               <div className="grid grid-cols-1 gap-4">
                 {classes.map(classe => (
                   <div key={classe.id} className="border rounded-lg overflow-hidden">
-                    <div className="p-4 cursor-pointer flex justify-between items-center bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition" onClick={() => setSelectedClasse(selectedClasse?.id === classe.id ? null : classe)}>
-                      <div><h4 className="text-lg font-bold dark:text-white">{classe.nom} {classe.niveau ? `(${classe.niveau})` : ''}</h4><p className="text-sm text-gray-500 dark:text-gray-400">{etudiants.filter(e => e.classe_id === classe.id).length} étudiants</p></div>
+                    <div
+                      className="p-4 cursor-pointer flex justify-between items-center bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600"
+                      onClick={() => setSelectedClasse(selectedClasse?.id === classe.id ? null : classe)}
+                    >
+                      <div>
+                        <h4 className="text-lg font-bold dark:text-white">{classe.nom} {classe.niveau ? `(${classe.niveau})` : ''}</h4>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{etudiants.filter(e => e.classe_id === classe.id).length} étudiants</p>
+                      </div>
                       <div className="flex items-center gap-3">
-                        <Eye className="h-5 w-5 text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 cursor-pointer" />
-                        <Trash2 className="h-5 w-5 text-red-500 hover:text-red-700 cursor-pointer" onClick={(e) => { e.stopPropagation(); handleDeleteClasse(classe.id); }} />
+                        <Eye className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                        <Trash2
+                          className="h-5 w-5 text-red-500 hover:text-red-700 cursor-pointer"
+                          onClick={(e) => { e.stopPropagation(); handleDeleteClasse(classe.id); }}
+                        />
                       </div>
                     </div>
                     {selectedClasse?.id === classe.id && (
-                      <div className="p-4 space-y-2 bg-white dark:bg-gray-800">
-                        {etudiantsParClasse.map(etudiant => (
-                          <div key={etudiant.id} className="p-2 border rounded dark:border-gray-700"><p className="font-medium dark:text-white">{etudiant.nom} {etudiant.prenom}</p></div>
-                        ))}
+                      <div className="border-t p-4 bg-gray-50 dark:bg-gray-700/30">
+                        <h4 className="font-semibold mb-2 dark:text-white">Étudiants</h4>
+                        <div className="space-y-2">
+                          {etudiantsParClasse.map(etudiant => (
+                            <div key={etudiant.id} className="p-2 border rounded dark:border-gray-700">
+                              <p className="font-medium dark:text-white">{etudiant.nom} {etudiant.prenom}</p>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -770,18 +951,21 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* ========== ONGLET NOTES ========== */}
+        {/*========== ONGLET NOTES  ==========*/}
         {activeTab === 'notes' && (
           <div>
             <div className="bg-gradient-to-r from-cyan-500 to-blue-600 rounded-2xl p-6 text-white mb-6">
               <h2 className="text-2xl font-bold">Gérer les notes</h2>
-              <p>Choisir une classe, gérer les notes des étudiants et imprimer les relevés individuels</p>
+              <p>Affichage par classe avec les trois contrôles</p>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
               <h4 className="text-lg font-semibold mb-4 dark:text-white">Choisir une classe</h4>
               {classes.map(classe => (
                 <div key={classe.id} className="border rounded-lg mb-3">
-                  <button onClick={() => setSelectedClasse(selectedClasse?.id === classe.id ? null : classe)} className="w-full flex justify-between items-center p-3 hover:bg-gray-50 dark:hover:bg-gray-700">
+                  <button
+                    onClick={() => setSelectedClasse(selectedClasse?.id === classe.id ? null : classe)}
+                    className="w-full flex justify-between items-center p-3 hover:bg-gray-50 dark:hover:bg-gray-700"
+                  >
                     <span className="font-medium dark:text-white">{classe.nom} {classe.niveau ? `(${classe.niveau})` : ''}</span>
                     <ChevronRight className="h-4 w-4 text-gray-400" />
                   </button>
@@ -789,17 +973,71 @@ export default function AdminDashboard() {
                     <div className="border-t p-4 bg-gray-50 dark:bg-gray-700/30">
                       <div className="flex justify-between items-center mb-4">
                         <h4 className="text-lg font-semibold dark:text-white">Étudiants</h4>
-                        <button onClick={() => printAllStudentReports(selectedClasse)} className="bg-blue-600 text-white px-3 py-1 rounded text-sm flex items-center gap-1"><Printer size={14}/> Imprimer tous les bulletins</button>
+                        <button
+                          onClick={() => printAllStudentReports(selectedClasse)}
+                          className="bg-blue-600 text-white px-3 py-1 rounded text-sm flex items-center gap-1"
+                        >
+                          <Printer size={14} /> Imprimer tous les bulletins
+                        </button>
                       </div>
-                      {etudiantsParClasse.map(etudiant => (
-                        <div key={etudiant.id} className="mb-4 p-3 bg-white dark:bg-gray-800 rounded-lg shadow">
-                          <div className="flex justify-between items-center mb-2">
-                            <span className="font-semibold dark:text-white">{etudiant.nom} {etudiant.prenom}</span>
-                            <button onClick={() => openAddNote(etudiant)} className="bg-green-500 text-white px-2 py-1 rounded text-sm">+ Note</button>
+                      {etudiantsParClasse.map(etudiant => {
+                        // Récupération des notes de l'étudiant (une note par (matière, type_controle))
+                        const etudiantNotes = notes.filter(n => n.etudiant_id === etudiant.id);
+                        // Grouper par matière et par type_controle
+                        const notesByMatiere = {};
+                        etudiantNotes.forEach(n => {
+                          if (!notesByMatiere[n.matiere]) notesByMatiere[n.matiere] = {};
+                          notesByMatiere[n.matiere][n.type_controle] = n.note;
+                        });
+                        return (
+                          <div key={etudiant.id} className="mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
+                            <h5 className="font-semibold text-lg mb-2 dark:text-white">{etudiant.nom} {etudiant.prenom}</h5>
+                            <div className="overflow-x-auto">
+                              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                <thead className="bg-gray-50 dark:bg-gray-700">
+                                  <tr>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Matière</th>
+                                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Contrôle 1</th>
+                                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Contrôle 2</th>
+                                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Contrôle 3</th>
+                                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Moyenne /20</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                                  {Object.entries(notesByMatiere).map(([matiere, controles]) => {
+                                    const note1 = controles['Contrôle 1'] || '-';
+                                    const note2 = controles['Contrôle 2'] || '-';
+                                    const note3 = controles['Contrôle 3'] || '-';
+                                    let moyenne = '-';
+                                    const notesValides = [note1, note2, note3].filter(n => n !== '-' && !isNaN(parseFloat(n)));
+                                    if (notesValides.length > 0) {
+                                      const somme = notesValides.reduce((acc, n) => acc + parseFloat(n), 0);
+                                      moyenne = (somme / notesValides.length).toFixed(2);
+                                    }
+                                    return (
+                                      <tr key={matiere}>
+                                        <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-white">{matiere}</td>
+                                        <td className="px-4 py-2 text-center text-sm text-gray-700 dark:text-gray-300">{note1 !== '-' ? note1 + '/20' : '-'}</td>
+                                        <td className="px-4 py-2 text-center text-sm text-gray-700 dark:text-gray-300">{note2 !== '-' ? note2 + '/20' : '-'}</td>
+                                        <td className="px-4 py-2 text-center text-sm text-gray-700 dark:text-gray-300">{note3 !== '-' ? note3 + '/20' : '-'}</td>
+                                        <td className="px-4 py-2 text-center text-sm font-semibold text-indigo-600 dark:text-indigo-400">{moyenne !== '-' ? moyenne + '/20' : '-'}</td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                            <div className="mt-3 flex justify-end">
+                              <button
+                                onClick={() => openAddNote(etudiant)}
+                                className="bg-green-500 text-white px-3 py-1 rounded text-sm"
+                              >
+                                + Ajouter une note
+                              </button>
+                            </div>
                           </div>
-                          <StudentNotesList notes={notes.filter(n => n.etudiant_id === etudiant.id)} onEdit={openEditNote} onDelete={handleDeleteNote} />
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -872,7 +1110,11 @@ export default function AdminDashboard() {
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                   <thead className="bg-gray-50 dark:bg-gray-700">
-                    <tr><th className="px-4 py-2 text-left dark:text-white">Classe</th><th className="px-4 py-2 text-left dark:text-white">Enseignant(s)</th><th className="px-4 py-2 dark:text-white">Actions</th></tr>
+                    <tr>
+                      <th className="px-4 py-2 text-left dark:text-white">Classe</th>
+                      <th className="px-4 py-2 text-left dark:text-white">Enseignant(s)</th>
+                      <th className="px-4 py-2 dark:text-white">Actions</th>
+                    </tr>
                   </thead>
                   <tbody>
                     {classes.map(c => {
@@ -893,7 +1135,6 @@ export default function AdminDashboard() {
           </div>
         )}
       </main>
-
       {/* ========== MODALES ========== */}
 
       {/* Modale utilisateur */}
@@ -904,10 +1145,30 @@ export default function AdminDashboard() {
             {!currentUser && usersNoRole.length > 0 && (<div className="mb-4"><label className="block text-sm font-medium dark:text-gray-300">Ou sélectionner un utilisateur existant</label><select value={selectedExistingUser} onChange={e => setSelectedExistingUser(e.target.value)} className="w-full border rounded p-2 dark:bg-gray-700 dark:text-white"><option value="">-- Créer un nouvel utilisateur --</option>{usersNoRole.map(u => <option key={u.id} value={u.id}>{u.name} ({u.email})</option>)}</select></div>)}
             <form onSubmit={handleUserSubmit} className="space-y-3">
               <input type="text" placeholder="Nom *" value={userForm.nom} onChange={e => setUserForm({ ...userForm, nom: e.target.value })} className="w-full border rounded p-2 dark:bg-gray-700 dark:text-white" required />
-              <input type="text" placeholder="Prénom" value={userForm.prenom} onChange={e => setUserForm({ ...userForm, prenom: e.target.value })} className="w-full border rounded p-2 dark:bg-gray-700 dark:text-white" required={userModalType === 'etudiant'} />
+              {(userModalType === 'etudiant') && (
+                <input type="text" placeholder="Prénom" value={userForm.prenom} onChange={e => setUserForm({ ...userForm, prenom: e.target.value })} className="w-full border rounded p-2 dark:bg-gray-700 dark:text-white" required={userModalType === 'etudiant'} />
+              )}
               {!selectedExistingUser && (<><input type="email" placeholder="Email *" value={userForm.email} onChange={e => setUserForm({ ...userForm, email: e.target.value })} className="w-full border rounded p-2 dark:bg-gray-700 dark:text-white" required />{!currentUser && <input type="password" placeholder="Mot de passe *" value={userForm.password} onChange={e => setUserForm({ ...userForm, password: e.target.value })} className="w-full border rounded p-2 dark:bg-gray-700 dark:text-white" required />}</>)}
-              {userModalType === 'enseignant' && <input type="text" placeholder="Matière *" value={userForm.matiere} onChange={e => setUserForm({ ...userForm, matiere: e.target.value })} className="w-full border rounded p-2 dark:bg-gray-700 dark:text-white" required />}
-              {userModalType === 'etudiant' && (<><select value={userForm.classe_id} onChange={e => setUserForm({ ...userForm, classe_id: e.target.value })} className="w-full border rounded p-2 dark:bg-gray-700 dark:text-white" required><option value="">Choisir une classe *</option>{classes.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}</select><input type="date" placeholder="Date de naissance" value={userForm.date_naissance} onChange={e => setUserForm({ ...userForm, date_naissance: e.target.value })} className="w-full border rounded p-2 dark:bg-gray-700 dark:text-white" /></>)}
+
+              {/* Champs spécifiques enseignant */}
+              {userModalType === 'enseignant' && (
+                <>
+                  <input type="text" placeholder="Matière *" value={userForm.matiere} onChange={e => setUserForm({ ...userForm, matiere: e.target.value })} className="w-full border rounded p-2 dark:bg-gray-700 dark:text-white" required />
+                  <input type="number" step="0.5" min="0.5" max="10" placeholder="Coefficient" value={userForm.coefficient} onChange={e => setUserForm({ ...userForm, coefficient: parseFloat(e.target.value) })} className="w-full border rounded p-2 dark:bg-gray-700 dark:text-white" required />
+                </>
+              )}
+
+              {/* Champs spécifiques étudiant */}
+              {userModalType === 'etudiant' && (
+                <>
+                  <select value={userForm.classe_id} onChange={e => setUserForm({ ...userForm, classe_id: e.target.value })} className="w-full border rounded p-2 dark:bg-gray-700 dark:text-white" required>
+                    <option value="">Choisir une classe *</option>
+                    {classes.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
+                  </select>
+                  <input type="date" placeholder="Date de naissance" value={userForm.date_naissance} onChange={e => setUserForm({ ...userForm, date_naissance: e.target.value })} className="w-full border rounded p-2 dark:bg-gray-700 dark:text-white" />
+                </>
+              )}
+
               <div className="flex justify-end gap-3"><button type="button" onClick={() => setShowUserModal(false)} className="px-3 py-1 bg-gray-300 dark:bg-gray-600 rounded dark:text-white">Annuler</button><button type="submit" className="px-3 py-1 bg-indigo-600 text-white rounded">Enregistrer</button></div>
             </form>
           </div>
@@ -949,15 +1210,15 @@ export default function AdminDashboard() {
             <h3 className="text-xl font-bold mb-4 dark:text-white">{currentAbsence ? 'Modifier' : 'Ajouter'} une absence</h3>
             <form onSubmit={handleAbsenceSubmit} className="space-y-3">
               <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded"><span className="font-semibold dark:text-white">Étudiant :</span> <span className="dark:text-gray-200">{currentEtudiant?.nom} {currentEtudiant?.prenom}</span></div>
-              <input type="date" value={absenceForm.date || ''} onChange={e => setAbsenceForm({...absenceForm, date: e.target.value})} className="w-full border rounded p-2 dark:bg-gray-700 dark:text-white" required readOnly={currentAbsence ? true : false} />
+              <input type="date" value={absenceForm.date || ''} onChange={e => setAbsenceForm({ ...absenceForm, date: e.target.value })} className="w-full border rounded p-2 dark:bg-gray-700 dark:text-white" required readOnly={currentAbsence ? true : false} />
               {!currentAbsence && (
-                <input type="number" step="0.5" placeholder="Heures" value={absenceForm.nb_heures} onChange={e => setAbsenceForm({...absenceForm, nb_heures: parseFloat(e.target.value)})} className="w-full border rounded p-2 dark:bg-gray-700 dark:text-white" required />
+                <input type="number" step="0.5" placeholder="Heures" value={absenceForm.nb_heures} onChange={e => setAbsenceForm({ ...absenceForm, nb_heures: parseFloat(e.target.value) })} className="w-full border rounded p-2 dark:bg-gray-700 dark:text-white" required />
               )}
               <label className="flex items-center gap-2 dark:text-gray-200">
-                <input type="checkbox" checked={absenceForm.justifiee} onChange={e => setAbsenceForm({...absenceForm, justifiee: e.target.checked})} /> Justifiée
+                <input type="checkbox" checked={absenceForm.justifiee} onChange={e => setAbsenceForm({ ...absenceForm, justifiee: e.target.checked })} /> Justifiée
               </label>
               {!currentAbsence && (
-                <select value={absenceForm.enseignant_id} onChange={e => setAbsenceForm({...absenceForm, enseignant_id: e.target.value})} className="w-full border rounded p-2 dark:bg-gray-700 dark:text-white" required>
+                <select value={absenceForm.enseignant_id} onChange={e => setAbsenceForm({ ...absenceForm, enseignant_id: e.target.value })} className="w-full border rounded p-2 dark:bg-gray-700 dark:text-white" required>
                   <option value="">Choisir un enseignant</option>
                   {enseignants.map(ens => <option key={ens.id} value={ens.id}>{ens.nom} ({ens.matiere})</option>)}
                 </select>

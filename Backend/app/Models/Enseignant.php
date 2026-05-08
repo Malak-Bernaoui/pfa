@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Enseignant extends Model
 {
     protected $table = 'enseignants';
-    protected $fillable = ['user_id', 'nom', 'matiere'];
+    protected $fillable = ['user_id', 'nom', 'matiere', 'coefficient'];
     
     public function user()
     {

@@ -3,27 +3,9 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../Api/Api';
 import {
-  Users,
-  BookOpen,
-  CalendarX,
-  Moon,
-  Sun,
-  LogOut,
-  ChevronDown,
-  GraduationCap,
-  Calendar,
-  CheckCircle,
-  XCircle,
-  Plus,
-  Eye,
-  X,
-  ChevronRight,
-  Home,
-  Edit,
-  Trash2,
-  User,
-  Key,
-  Printer
+  Users, BookOpen, CalendarX, Moon, Sun, LogOut, ChevronDown,
+  GraduationCap, Calendar, CheckCircle, XCircle, Plus, Eye, X,
+  ChevronRight, Home, Edit, Trash2, User, Key, Printer
 } from 'lucide-react';
 
 export default function EnseignantDashboard() {
@@ -65,6 +47,7 @@ export default function EnseignantDashboard() {
   const [noteForm, setNoteForm] = useState({
     etudiant_id: '',
     matiere: '',
+    type_controle: 'Contrôle 1',
     note: ''
   });
   const [newClasse, setNewClasse] = useState({
@@ -113,8 +96,7 @@ export default function EnseignantDashboard() {
 
       try {
         const resClasses = await api.get('/classes');
-        const filtered = resClasses.data;
-        setClasses(filtered);
+        setClasses(resClasses.data);
       } catch (error) { console.error(error); }
 
       try {
@@ -246,13 +228,14 @@ export default function EnseignantDashboard() {
     }
   };
 
-  // ---------- Notes ----------
+  // ---------- Notes (avec type_controle) ----------
   const openAddNote = (etudiant) => {
     setCurrentEtudiant(etudiant);
     setCurrentNote(null);
     setNoteForm({
       etudiant_id: etudiant.id,
       matiere: enseignant?.matiere || '',
+      type_controle: 'Contrôle 1',
       note: ''
     });
     setShowNoteModal(true);
@@ -261,21 +244,46 @@ export default function EnseignantDashboard() {
   const openEditNote = (note) => {
     setCurrentNote(note);
     setNoteForm({
-      etudiant_id: selectedEtudiantNotes?.id,
+      etudiant_id: note.etudiant_id,
       matiere: note.matiere,
+      type_controle: note.type_controle || 'Contrôle 1',
       note: note.note
     });
     setShowNoteModal(true);
   };
 
+  const handleDeleteNote = async (noteId) => {
+    if (window.confirm('Supprimer cette note ?')) {
+      try {
+        await api.delete(`/notes/${noteId}`);
+        const res = await api.get('/notes');
+        setNotes(res.data);
+        if (selectedEtudiantNotes) {
+          const resStudent = await api.get(`/etudiants/${selectedEtudiantNotes.id}/notes/matiere`);
+          setStudentNotes(resStudent.data);
+        }
+        setMessage({ text: 'Note supprimée', type: 'success' });
+      } catch (error) {
+        console.error(error);
+        setMessage({ text: 'Erreur suppression', type: 'error' });
+      }
+    }
+  };
+
   const handleNoteSubmit = async (e) => {
     e.preventDefault();
     try {
+      const payload = {
+        etudiant_id: noteForm.etudiant_id,
+        matiere: noteForm.matiere,
+        type_controle: noteForm.type_controle,
+        note: parseFloat(noteForm.note)
+      };
       if (currentNote) {
-        await api.put(`/notes/${currentNote.id}`, noteForm);
+        await api.put(`/notes/${currentNote.id}`, payload);
         setMessage({ text: 'Note modifiée', type: 'success' });
       } else {
-        await api.post('/notes', noteForm);
+        await api.post('/notes', payload);
         setMessage({ text: 'Note ajoutée', type: 'success' });
       }
       const resNotes = await api.get('/notes');
@@ -291,114 +299,95 @@ export default function EnseignantDashboard() {
     }
   };
 
-  const handleDeleteNote = async (noteId) => {
-    if (window.confirm('Supprimer cette note ?')) {
-      try {
-        await api.delete(`/notes/${noteId}`);
-        const resNotes = await api.get('/notes');
-        setNotes(resNotes.data);
-        if (selectedEtudiantNotes) {
-          const resStudent = await api.get(`/etudiants/${selectedEtudiantNotes.id}/notes/matiere`);
-          setStudentNotes(resStudent.data);
-        }
-        setMessage({ text: 'Note supprimée', type: 'success' });
-      } catch (error) {
-        console.error(error);
-        setMessage({ text: 'Erreur suppression', type: 'error' });
+  // Impression du relevé de notes 
+const printClassReport = async (classe) => {
+  const classStudents = etudiants.filter(e => e.classe_id === classe.id);
+  if (classStudents.length === 0) {
+    alert('Aucun étudiant dans cette classe.');
+    return;
+  }
+
+  // Récupération des notes par étudiant
+  const studentData = await Promise.all(classStudents.map(async (etudiant) => {
+    try {
+      const res = await api.get(`/etudiants/${etudiant.id}/notes/matiere`);
+      const etudiantNotes = res.data;
+      const note1 = etudiantNotes.find(n => n.type_controle === 'Contrôle 1')?.note || '-';
+      const note2 = etudiantNotes.find(n => n.type_controle === 'Contrôle 2')?.note || '-';
+      const note3 = etudiantNotes.find(n => n.type_controle === 'Contrôle 3')?.note || '-';
+      let moyenne = '-';
+      const notesValides = [note1, note2, note3].filter(n => n !== '-');
+      if (notesValides.length > 0) {
+        const sum = notesValides.reduce((acc, n) => acc + parseFloat(n), 0);
+        moyenne = (sum / notesValides.length).toFixed(2);
       }
+      return {
+        nom: `${etudiant.nom} ${etudiant.prenom}`,
+        controle1: note1,
+        controle2: note2,
+        controle3: note3,
+        moyenne
+      };
+    } catch (error) {
+      console.error(error);
+      return {
+        nom: `${etudiant.nom} ${etudiant.prenom}`,
+        controle1: '-',
+        controle2: '-',
+        controle3: '-',
+        moyenne: '-'
+      };
     }
-  };
+  }));
 
-  // ---------- Impression d'un seul document avec tous les étudiants de la classe ----------
-  const printAllStudentReports = (classe) => {
-    const classStudents = etudiants.filter(e => e.classe_id === classe.id);
-    if (classStudents.length === 0) {
-      alert('Aucun étudiant dans cette classe.');
-      return;
-    }
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    alert("Impossible d'ouvrir la fenêtre d'impression. Veuillez autoriser les popups pour ce site.");
+    return;
+  }
 
-    // Construire les lignes du tableau : une ligne par (étudiant, matière)
-    let rows = [];
-    classStudents.forEach(etudiant => {
-      const studentNotes = notes.filter(n => n.etudiant_id === etudiant.id);
-      if (studentNotes.length === 0) {
-        rows.push({ nom: `${etudiant.nom} ${etudiant.prenom}`, matiere: 'Aucune note', note: '-' });
-      } else {
-        studentNotes.forEach(n => {
-          rows.push({ nom: `${etudiant.nom} ${etudiant.prenom}`, matiere: n.matiere, note: n.note });
-        });
-      }
-    });
-
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
+  printWindow.document.write(`
     <!DOCTYPE html>
     <html>
     <head>
       <title>Relevé de notes - ${classe.nom}</title>
       <meta charset="UTF-8">
       <style>
-        body {
-          font-family: 'Segoe UI', Arial, sans-serif;
-          margin: 30px;
-        }
-        .header {
-          text-align: center;
-          margin-bottom: 30px;
-        }
-        .school-name {
-          font-size: 24px;
-          font-weight: bold;
-          color: #4f46e5;
-        }
-        .title {
-          font-size: 20px;
-          font-weight: bold;
-          margin: 5px 0;
-        }
-        table {
-          width: 100%;
-          border-collapse: collapse;
-          margin-top: 20px;
-        }
-        th, td {
-          border: 1px solid #ccc;
-          padding: 10px;
-          text-align: left;
-        }
-        th {
-          background-color: #f3f4f6;
-          font-weight: bold;
-        }
-        .footer {
-          margin-top: 30px;
-          text-align: center;
-          font-size: 12px;
-          color: #666;
-          border-top: 1px solid #ccc;
-          padding-top: 10px;
-        }
+        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 30px; background: white; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .school-name { font-size: 24px; font-weight: bold; color: #4f46e5; }
+        .title { font-size: 20px; font-weight: bold; margin: 5px 0; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+        th { background: #f3f4f6; }
+        .moyenne-col { font-weight: bold; background: #e0e7ff; }
+        .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #666; }
       </style>
     </head>
     <body>
       <div class="header">
-        <div class="school-name"> Mon Établissement Scolaire</div>
-        <div class="title">Relevé de notes - ${classe.nom} ${classe.niveau ? `(${classe.niveau})` : ''}</div>
-        <div class="title">Matière : ${enseignant?.matiere || 'N/A'}</div>
-        <div>Année scolaire 2025/2026</div>
+        <div class="school-name">Mon Établissement Scolaire</div>
+        <div class="title">Relevé de notes - ${classe.nom} (${classe.niveau || ''})</div>
+        <div>Matière : ${enseignant.matiere} (Coefficient ${enseignant.coefficient || 1})</div>
       </div>
       <table>
         <thead>
           <tr>
             <th>Étudiant</th>
-            <th>Note /20</th>
+            <th>Contrôle 1</th>
+            <th>Contrôle 2</th>
+            <th>Contrôle 3</th>
+            <th>Moyenne /20</th>
           </tr>
         </thead>
         <tbody>
-          ${rows.map(row => `
+          ${studentData.map(s => `
             <tr>
-              <td>${row.nom}</td>
-              <td>${row.note !== '-' ? row.note + '/20' : '-'}</td>
+              <td><strong>${s.nom}</strong></td>
+              <td>${s.controle1 !== '-' ? s.controle1 + '/20' : '-'}</td>
+              <td>${s.controle2 !== '-' ? s.controle2 + '/20' : '-'}</td>
+              <td>${s.controle3 !== '-' ? s.controle3 + '/20' : '-'}</td>
+              <td class="moyenne-col">${s.moyenne !== '-' ? s.moyenne + '/20' : '-'}</td>
             </tr>
           `).join('')}
         </tbody>
@@ -409,9 +398,9 @@ export default function EnseignantDashboard() {
     </body>
     </html>
   `);
-    printWindow.document.close();
-    printWindow.print();
-  };
+  printWindow.document.close();
+  printWindow.print();
+};
 
   // ---------- Classes ----------
   const handleCreateClasse = async (e) => {
@@ -419,8 +408,7 @@ export default function EnseignantDashboard() {
     try {
       await api.post('/classes', newClasse);
       const res = await api.get('/classes');
-      const filtered = res.data.filter(c => c.enseignant_id === parseInt(id));
-      setClasses(filtered);
+      setClasses(res.data);
       setShowCreateClasseModal(false);
       setNewClasse({ nom: '', niveau: '', enseignant_id: parseInt(id) });
       setMessage({ text: 'Classe créée', type: 'success' });
@@ -435,7 +423,6 @@ export default function EnseignantDashboard() {
     ? etudiants.filter(e => e.classe_id === selectedClasse.id)
     : [];
 
-  const getNotesForEtudiant = (etudiantId) => notes.filter(n => n.etudiant_id === etudiantId);
   const getAbsencesForEtudiant = (etudiantId) => absences.filter(a => a.etudiant_id === etudiantId);
   const mesAbsences = absences.filter(a => a.enseignant_id === parseInt(id));
   const mesNotes = notes.filter(n => {
@@ -456,7 +443,7 @@ export default function EnseignantDashboard() {
     { id: 'overview', label: 'Tableau de bord', icon: Home },
     { id: 'classes', label: 'Mes classes', icon: GraduationCap },
     { id: 'notes', label: 'Notes', icon: BookOpen },
-    { id: 'absences', label: 'Absences', icon: CalendarX },
+    { id: 'absences', label: 'Absences', icon: CalendarX }
   ];
 
   return (
@@ -468,7 +455,7 @@ export default function EnseignantDashboard() {
         </div>
       )}
 
-      {/* Navbar  */}
+      {/* Navbar (style original) */}
       <nav className="bg-white dark:bg-gray-800 shadow-md sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
@@ -532,7 +519,7 @@ export default function EnseignantDashboard() {
       </nav>
 
       <main className="max-w-7xl mx-auto px-4 py-8">
-        {/* Tableau de bord*/}
+        {/* Tableau de bord */}
         {activeTab === 'overview' && (
           <div>
             <div className="bg-gradient-to-r from-rose-500 to-pink-600 rounded-2xl p-6 text-white mb-6">
@@ -540,6 +527,7 @@ export default function EnseignantDashboard() {
               <p className="text-rose-100">Vue d’ensemble de votre activité</p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {/* ... cartes existantes (inchangées) ... */}
               <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
                 <GraduationCap className="h-8 w-8 text-indigo-500 mb-2" />
                 <p className="text-2xl font-bold text-gray-800 dark:text-white">{classes.length}</p>
@@ -564,7 +552,7 @@ export default function EnseignantDashboard() {
           </div>
         )}
 
-        {/* Mon profil */}
+        {/* Mon profil (lecture seule pour le coefficient) */}
         {activeTab === 'profil' && (
           <div className="space-y-6">
             <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-6 text-white mb-6">
@@ -583,6 +571,7 @@ export default function EnseignantDashboard() {
                     {enseignant?.prenom} {enseignant?.nom}
                   </h3>
                   <p className="text-gray-500 dark:text-gray-400">Matière : {enseignant?.matiere}</p>
+                  <p className="text-gray-500 dark:text-gray-400">Coefficient : {enseignant?.coefficient || 1}</p>
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -616,7 +605,7 @@ export default function EnseignantDashboard() {
           </div>
         )}
 
-        {/* Mes classes */}
+        {/* Mes classes (inchangé) */}
         {activeTab === 'classes' && (
           <div>
             <div className="bg-gradient-to-r from-emerald-500 to-green-600 rounded-2xl p-6 text-white mb-6">
@@ -661,7 +650,7 @@ export default function EnseignantDashboard() {
           </div>
         )}
 
-        {/* Notes – avec impression de tous les notes de classe*/}
+        {/* Notes (avec impression tableau professionnel) */}
         {activeTab === 'notes' && (
           <div>
             <div className="bg-gradient-to-r from-green-500 to-teal-600 rounded-2xl p-6 text-white mb-6">
@@ -686,7 +675,7 @@ export default function EnseignantDashboard() {
                         <div className="flex justify-between items-center mb-4">
                           <h4 className="text-lg font-semibold text-gray-800 dark:text-white">Étudiants</h4>
                           <button
-                            onClick={() => printAllStudentReports(selectedClasse)}
+                            onClick={async () => await printClassReport(selectedClasse)}
                             className="bg-blue-600 text-white px-3 py-1 rounded text-sm flex items-center gap-1"
                           >
                             <Printer size={14} /> Imprimer le relevé
@@ -726,25 +715,98 @@ export default function EnseignantDashboard() {
                   <p className="text-gray-500 dark:text-gray-400">Sélectionnez un étudiant pour voir ses notes.</p>
                 ) : (
                   <>
-                    {studentNotes.length === 0 ? (
-                      <p className="text-gray-500 dark:text-gray-400">Aucune note dans cette matière.</p>
-                    ) : (
-                      <div className="space-y-2">
-                        {studentNotes.map(note => (
-                          <div key={note.id} className="border-b pb-2 flex justify-between items-center">
-                            <span className="font-semibold text-gray-800 dark:text-white">{note.note}/20</span>
-                            <div className="flex gap-2">
-                              <button onClick={() => openEditNote(note)} className="text-blue-500 hover:text-blue-700">
-                                <Edit className="h-4 w-4" />
-                              </button>
-                              <button onClick={() => handleDeleteNote(note.id)} className="text-red-500 hover:text-red-700">
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </div>
+                    {(() => {
+                      const note1 = studentNotes.find(n => n.type_controle === 'Contrôle 1');
+                      const note2 = studentNotes.find(n => n.type_controle === 'Contrôle 2');
+                      const note3 = studentNotes.find(n => n.type_controle === 'Contrôle 3');
+                      let moyenne = '-';
+                      const notesValides = [note1, note2, note3].filter(n => n);
+                      if (notesValides.length > 0) {
+                        const somme = notesValides.reduce((acc, n) => acc + parseFloat(n.note), 0);
+                        moyenne = (somme / notesValides.length).toFixed(2);
+                      }
+                      return (
+                        <div>
+                          <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                              <thead className="bg-gray-50 dark:bg-gray-700">
+                                <tr>
+                                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Contrôle</th>
+                                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Note /20</th>
+                                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                                <tr>
+                                  <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">Contrôle 1</td>
+                                  <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                                    {note1 ? `${note1.note}/20` : '-'}
+                                  </td>
+                                  <td className="px-4 py-3 text-right text-sm">
+                                    {note1 ? (
+                                      <div className="flex justify-end gap-2">
+                                        <button onClick={() => openEditNote(note1)} className="text-blue-500 hover:text-blue-700">
+                                          <Edit size={16} />
+                                        </button>
+                                        <button onClick={() => handleDeleteNote(note1.id)} className="text-red-500 hover:text-red-700">
+                                          <Trash2 size={16} />
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <span className="text-gray-400 text-xs">non saisie</span>
+                                    )}
+                                  </td>
+                                </tr>
+                                <tr>
+                                  <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">Contrôle 2</td>
+                                  <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                                    {note2 ? `${note2.note}/20` : '-'}
+                                  </td>
+                                  <td className="px-4 py-3 text-right text-sm">
+                                    {note2 ? (
+                                      <div className="flex justify-end gap-2">
+                                        <button onClick={() => openEditNote(note2)} className="text-blue-500 hover:text-blue-700">
+                                          <Edit size={16} />
+                                        </button>
+                                        <button onClick={() => handleDeleteNote(note2.id)} className="text-red-500 hover:text-red-700">
+                                          <Trash2 size={16} />
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <span className="text-gray-400 text-xs">non saisie</span>
+                                    )}
+                                  </td>
+                                </tr>
+                                <tr>
+                                  <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">Contrôle 3</td>
+                                  <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                                    {note3 ? `${note3.note}/20` : '-'}
+                                  </td>
+                                  <td className="px-4 py-3 text-right text-sm">
+                                    {note3 ? (
+                                      <div className="flex justify-end gap-2">
+                                        <button onClick={() => openEditNote(note3)} className="text-blue-500 hover:text-blue-700">
+                                          <Edit size={16} />
+                                        </button>
+                                        <button onClick={() => handleDeleteNote(note3.id)} className="text-red-500 hover:text-red-700">
+                                          <Trash2 size={16} />
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <span className="text-gray-400 text-xs">non saisie</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </table>
                           </div>
-                        ))}
-                      </div>
-                    )}
+                          <div className="mt-4 p-3 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg text-right">
+                            <span className="font-semibold text-gray-700 dark:text-gray-200">Moyenne générale : </span>
+                            <span className="text-xl font-bold text-indigo-600 dark:text-indigo-400">{moyenne !== '-' ? moyenne + '/20' : '-'}</span>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </>
                 )}
               </div>
@@ -752,7 +814,7 @@ export default function EnseignantDashboard() {
           </div>
         )}
 
-        {/* Absences */}
+        {/* Absences (inchangé) */}
         {activeTab === 'absences' && (
           <div>
             <div className="bg-gradient-to-r from-orange-500 to-red-600 rounded-2xl p-6 text-white mb-6">
@@ -795,7 +857,6 @@ export default function EnseignantDashboard() {
                   </div>
                 ))}
               </div>
-
               <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
                 <h4 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
                   {selectedEtudiantAbsences
@@ -840,7 +901,7 @@ export default function EnseignantDashboard() {
         )}
       </main>
 
-      {/* Modale création de classe */}
+      {/* Modales (inchangées) */}
       {showCreateClasseModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full p-6">
@@ -860,7 +921,6 @@ export default function EnseignantDashboard() {
         </div>
       )}
 
-      {/* Modale absence */}
       {showAbsenceModal && currentEtudiant && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full p-6">
@@ -879,7 +939,6 @@ export default function EnseignantDashboard() {
         </div>
       )}
 
-      {/* Modale note */}
       {showNoteModal && currentEtudiant && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full p-6">
@@ -887,7 +946,12 @@ export default function EnseignantDashboard() {
             <form onSubmit={handleNoteSubmit} className="space-y-4">
               <input type="text" readOnly value={`${currentEtudiant.nom} ${currentEtudiant.prenom}`} className="w-full border rounded-lg p-2 bg-gray-100 dark:bg-gray-700 dark:text-white" />
               <input type="text" value={enseignant?.matiere} readOnly className="w-full border rounded-lg p-2 bg-gray-100 dark:bg-gray-700 dark:text-white" />
-              <input type="number" step="0.1" min="0" max="20" value={noteForm.note} onChange={e => setNoteForm({ ...noteForm, note: e.target.value })} className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" required />
+              <select value={noteForm.type_controle} onChange={e => setNoteForm({ ...noteForm, type_controle: e.target.value })} className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                <option>Contrôle 1</option>
+                <option>Contrôle 2</option>
+                <option>Contrôle 3</option>
+              </select>
+              <input type="number" step="0.1" min="0" max="20" placeholder="Note" value={noteForm.note} onChange={e => setNoteForm({ ...noteForm, note: e.target.value })} className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" required />
               <div className="flex justify-end gap-3">
                 <button type="button" onClick={() => setShowNoteModal(false)} className="px-4 py-2 bg-gray-300 dark:bg-gray-600 rounded-lg">Annuler</button>
                 <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-lg">Enregistrer</button>
@@ -897,7 +961,6 @@ export default function EnseignantDashboard() {
         </div>
       )}
 
-      {/* Modale changement de mot de passe */}
       {showPasswordModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full p-6">

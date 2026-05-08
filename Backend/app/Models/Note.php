@@ -9,11 +9,7 @@ class Note extends Model
     protected $table = 'notes';
     protected $primaryKey = 'id';
     
-    protected $fillable = [
-        'matiere',
-        'note',
-        'etudiant_id'
-    ];
+    protected $fillable = ['etudiant_id', 'matiere', 'type_controle', 'note'];
     
     // Relations
     public function etudiant()

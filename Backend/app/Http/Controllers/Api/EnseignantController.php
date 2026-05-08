@@ -20,6 +20,7 @@ class EnseignantController extends Controller
             'email' => 'required_without:user_id|email|unique:users',
             'password' => 'required_without:user_id|min:6',
             'matiere' => 'required|string',
+            'coefficient' => 'nullable|numeric|min:0.5|max:10', // Ajout du coefficient
         ];
 
         $validator = Validator::make($request->all(), $rules);
@@ -42,10 +43,12 @@ class EnseignantController extends Controller
             'user_id' => $user->id,
             'nom' => $request->nom,
             'matiere' => $request->matiere,
+            'coefficient' => $request->coefficient ?? 1, // Valeur par défaut 1
         ]);
 
         return response()->json($enseignant->load('user'), 201);
     }
+
     public function show($id)
     {
         $enseignant = Enseignant::with('user')->find($id);
@@ -56,64 +59,53 @@ class EnseignantController extends Controller
             'id' => $enseignant->id,
             'nom' => $enseignant->nom,
             'matiere' => $enseignant->matiere,
+            'coefficient' => $enseignant->coefficient ?? 1, 
             'user' => $enseignant->user
         ]);
     }
-    public function index()
-    {
-        $enseignants = Enseignant::with('user')->get();
-        return response()->json($enseignants);
-    }
 
-        public function cours($id)
-        {
-            $enseignant = Enseignant::find($id);
-            if (!$enseignant) {
-                return response()->json(['message' => 'Enseignant non trouvé'], 404);
-            }
-            // Retourner les cours de cet enseignant (vous devez adapter selon votre BDD)
-            $cours = []; 
-            return response()->json($cours);
-        }
-        public function update(Request $request, $id)
+public function index()
+{
+    $enseignants = Enseignant::with('user')->get();
+    return response()->json($enseignants);
+}
+
+    public function cours($id)
     {
         $enseignant = Enseignant::find($id);
         if (!$enseignant) {
             return response()->json(['message' => 'Enseignant non trouvé'], 404);
         }
+        // Retourner les cours de cet enseignant (à adapter)
+        $cours = []; 
+        return response()->json($cours);
+    }
 
-        $rules = [
-            'nom' => 'required|string',
-            'prenom' => 'nullable|string',
+    public function update(Request $request, $id)
+    {
+        $enseignant = Enseignant::find($id);
+        if (!$enseignant) return response()->json(['message' => 'Enseignant non trouvé'], 404);
+
+        $request->validate([
+            'nom' => 'sometimes|string',
             'email' => 'nullable|email|unique:users,email,' . $enseignant->user_id,
             'password' => 'nullable|min:6',
-            'matiere' => 'required|string',
-        ];
+            'matiere' => 'sometimes|string',
+            'coefficient' => 'nullable|numeric|min:0.5|max:10',
+        ]);
 
-        $validator = Validator::make($request->all(), $rules);
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
-        }
-
-        // Mise à jour des champs de l'enseignant
-        $enseignant->nom = $request->nom;
-        $enseignant->matiere = $request->matiere;
+        if ($request->has('nom')) $enseignant->nom = $request->nom;
+        if ($request->has('matiere')) $enseignant->matiere = $request->matiere;
+        if ($request->has('coefficient')) $enseignant->coefficient = $request->coefficient;
         $enseignant->save();
 
-        // Mise à jour de l'utilisateur associé
         $user = $enseignant->user;
-        if ($user) {
-            if ($request->has('nom') || $request->has('prenom')) {
-                $user->name = $request->nom . ' ' . ($request->prenom ?? '');
-            }
-            if ($request->filled('email')) {
-                $user->email = $request->email;
-            }
-            if ($request->filled('password')) {
-                $user->password = Hash::make($request->password);
-            }
-            $user->save();
+        if ($request->has('nom')) {
+            $user->name = $request->nom;
         }
+        if ($request->has('email')) $user->email = $request->email;
+        if ($request->filled('password')) $user->password = Hash::make($request->password);
+        $user->save();
 
         return response()->json($enseignant->load('user'));
     }

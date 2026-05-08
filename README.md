@@ -44,24 +44,39 @@ Accessible aux utilisateurs sans rôle spécifique. Elle contient :
 - **Export PDF** : génère un relevé complet (infos personnelles, notes, absences) avec un design professionnel (Tailwind + impression).
 - **Mode sombre** intégré.
 
-### Espace enseignant (`/enseignant/:id`)
+###  Espace enseignant (`/enseignant/:id`)
 
-- **Mon profil** : nom, prénom, matière enseignée, email, nombre de classes affectées.
+- **Mon profil** : nom (pas de prénom), matière enseignée, coefficient de la matière (affiché en lecture seule), email, nombre de classes affectées.
 - **Tableau de bord** : vue d’ensemble des classes, étudiants, notes saisies et absences enregistrées.
-- **Mes classes** : liste des classes auxquelles l’enseignant est associé. Un clic sur une classe affiche la liste des étudiants (avec possibilité d’ajouter directement une note ou une absence).
+- **Mes classes** : liste des classes auxquelles l’enseignant est associé. Un clic sur une classe affiche la liste des étudiants.
 - **Gestion des notes** :
   - Sélection d’une classe → affichage de ses étudiants.
-  - Clic sur un étudiant pour voir ses notes (matière de l’enseignant).
-  - Ajout / modification / suppression d’une note (modal dédié).
+  - Clic sur un étudiant pour voir ses trois contrôles (Contrôle 1, 2, 3).
+  - Ajout / modification / suppression d’une note (type de contrôle, note).
+  - Impression du relevé de notes (tableau des contrôles par étudiant).
 - **Gestion des absences** :
   - Sélection d’une classe → affichage de ses étudiants.
   - Clic sur un étudiant pour voir ses absences (date, nombre d’heures, justification).
-  - Ajout / modification / suppression d’une absence (sans justification possible depuis le formulaire).
-- **Emploi du temps** : tableau hebdomadaire des cours (statique, personnalisable).
+  - Ajout / modification / suppression d’une absence.
+- **Emploi du temps** : tableau hebdomadaire des cours (statique).
 - **Mode sombre** intégré.
 - **Déconnexion** via le menu utilisateur.
 
+### Espace administrateur (`/admin/dashboard`)
 
+- **Tableau de bord** : statistiques globales (utilisateurs totaux, étudiants, enseignants, administrateurs, classes, notes, absences, messages de contact).
+- **Gestion des utilisateurs** :
+  - **Étudiants** : liste, ajout, modification, suppression (nom, prénom, email, classe, date de naissance).
+  - **Enseignants** : liste, ajout, modification, suppression (nom, email, matière, coefficient). Pas de prénom.
+  - **Administrateurs** : liste, ajout, modification, suppression (nom, email). Seulement la colonne `user_id` en base.
+  - **Utilisateurs sans rôle** : liste des utilisateurs non encore affectés, avec boutons pour leur attribuer un rôle (étudiant, enseignant, admin).
+- **Gestion des classes** : création, modification, suppression, consultation des étudiants par classe (uniquement les noms).
+- **Gestion des notes** : par classe, affichage des étudiants avec leurs trois contrôles (tableau matière, contrôle 1, 2, 3, moyenne). Impression des bulletins (un PDF par étudiant, avec ses notes et moyenne générale). Possibilité d’ajouter/modifier/supprimer des notes.
+- **Gestion des absences** : par classe, consultation des absences par étudiant. Modification de la justification (case à cocher). Suppression.
+- **Affectation des enseignants aux classes** (table pivot `classe_enseignant`) : liste des classes et des enseignants affectés, possibilité de modifier l’affectation.
+- **Messages de contact** : consultation et suppression des messages envoyés via le formulaire de contact.
+- **Mode sombre** intégral.
+- **Déconnexion** via le menu utilisateur.
 
 ##  Architecture technique
 

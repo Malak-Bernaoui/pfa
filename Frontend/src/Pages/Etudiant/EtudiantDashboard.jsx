@@ -132,177 +132,225 @@ export default function EtudiantDashboard() {
     }
   };
 
-  const handlePrint = () => {
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Relevé étudiant - ${etudiant?.prenom} ${etudiant?.nom}</title>
-        <meta charset="UTF-8">
-        <style>
-          * { margin: 0; padding: 0; box-sizing: border-box; }
+const handlePrint = () => {
+  const printWindow = window.open('', '_blank');
+
+  // Regrouper les notes par matière
+  const notesByMatiere = notes.reduce((acc, note) => {
+    if (!acc[note.matiere]) acc[note.matiere] = [];
+    acc[note.matiere].push(note);
+    return acc;
+  }, {});
+
+  let notesHtml = '';
+  if (notes.length === 0) {
+    notesHtml = '<p>Aucune note disponible.</p>';
+  } else {
+    notesHtml = `
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Matière</th>
+            <th>Contrôle 1</th>
+            <th>Contrôle 2</th>
+            <th>Contrôle 3</th>
+            <th>Moyenne matière</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+    for (const [matiere, notesList] of Object.entries(notesByMatiere)) {
+      const controle1 = notesList.find(n => n.type_controle === 'Contrôle 1');
+      const controle2 = notesList.find(n => n.type_controle === 'Contrôle 2');
+      const controle3 = notesList.find(n => n.type_controle === 'Contrôle 3');
+      const note1 = controle1 ? controle1.note : '-';
+      const note2 = controle2 ? controle2.note : '-';
+      const note3 = controle3 ? controle3.note : '-';
+      let moyMatiere = '-';
+      const notesValides = [controle1, controle2, controle3].filter(c => c && c.note);
+      if (notesValides.length > 0) {
+        const sum = notesValides.reduce((acc, c) => acc + parseFloat(c.note), 0);
+        moyMatiere = (sum / notesValides.length).toFixed(2);
+      }
+      notesHtml += `
+        <tr>
+          <td>${matiere}</td>
+          <td>${note1 !== '-' ? note1 + '/20' : '-'}</td>
+          <td>${note2 !== '-' ? note2 + '/20' : '-'}</td>
+          <td>${note3 !== '-' ? note3 + '/20' : '-'}</td>
+          <td><strong>${moyMatiere !== '-' ? moyMatiere + '/20' : '-'}</strong></td>
+        </tr>
+      `;
+    }
+    notesHtml += `</tbody></table>`;
+    if (moyenneGenerale) {
+      notesHtml += `<div class="moyenne">Moyenne générale : ${moyenneGenerale} / 20</div>`;
+    }
+  }
+
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Relevé étudiant - ${etudiant?.prenom} ${etudiant?.nom}</title>
+      <meta charset="UTF-8">
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+          font-family: 'Segoe UI', Arial, sans-serif;
+          margin: 40px;
+          color: #333;
+          line-height: 1.5;
+          background: white;
+        }
+        .print-container {
+          max-width: 1000px;
+          margin: 0 auto;
+          background: white;
+        }
+        .header {
+          text-align: center;
+          border-bottom: 3px solid #4f46e5;
+          padding-bottom: 15px;
+          margin-bottom: 30px;
+        }
+        .title {
+          font-size: 28px;
+          font-weight: bold;
+          color: #4f46e5;
+        }
+        .subtitle {
+          font-size: 14px;
+          color: #6b7280;
+          margin-top: 5px;
+        }
+        .section {
+          margin-bottom: 30px;
+          page-break-inside: avoid;
+        }
+        .section-title {
+          font-size: 20px;
+          font-weight: bold;
+          background: #f3f4f6;
+          padding: 8px 15px;
+          border-left: 5px solid #4f46e5;
+          margin-bottom: 15px;
+        }
+        .info-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 12px;
+          background: #f9fafb;
+          padding: 20px;
+          border-radius: 12px;
+        }
+        .info-item {
+          font-size: 15px;
+        }
+        .info-label {
+          font-weight: bold;
+          color: #374151;
+          display: inline-block;
+          width: 140px;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-top: 10px;
+        }
+        th, td {
+          border: 1px solid #e5e7eb;
+          padding: 12px;
+          text-align: left;
+        }
+        th {
+          background-color: #f3f4f6;
+          font-weight: bold;
+        }
+        .moyenne {
+          margin-top: 20px;
+          padding: 10px;
+          background-color: #e0e7ff;
+          border-radius: 8px;
+          font-weight: bold;
+          text-align: center;
+          font-size: 18px;
+        }
+        .footer {
+          margin-top: 50px;
+          text-align: center;
+          font-size: 12px;
+          color: #9ca3af;
+          border-top: 1px solid #e5e7eb;
+          padding-top: 20px;
+        }
+        @media print {
           body {
-            font-family: 'Segoe UI', Arial, sans-serif;
-            margin: 40px;
-            color: #333;
-            line-height: 1.5;
-            background: white;
+            margin: 0;
+            padding: 20px;
           }
           .print-container {
-            max-width: 1000px;
-            margin: 0 auto;
-            background: white;
-          }
-          .header {
-            text-align: center;
-            border-bottom: 3px solid #4f46e5;
-            padding-bottom: 15px;
-            margin-bottom: 30px;
-          }
-          .title {
-            font-size: 28px;
-            font-weight: bold;
-            color: #4f46e5;
-          }
-          .subtitle {
-            font-size: 14px;
-            color: #6b7280;
-            margin-top: 5px;
+            max-width: 100%;
           }
           .section {
-            margin-bottom: 30px;
             page-break-inside: avoid;
           }
-          .section-title {
-            font-size: 20px;
-            font-weight: bold;
-            background: #f3f4f6;
-            padding: 8px 15px;
-            border-left: 5px solid #4f46e5;
-            margin-bottom: 15px;
-          }
-          .info-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 12px;
-            background: #f9fafb;
-            padding: 20px;
-            border-radius: 12px;
-          }
-          .info-item {
-            font-size: 15px;
-          }
-          .info-label {
-            font-weight: bold;
-            color: #374151;
-            display: inline-block;
-            width: 140px;
-          }
-          table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-          }
-          th, td {
-            border: 1px solid #e5e7eb;
-            padding: 12px;
-            text-align: left;
-          }
-          th {
-            background-color: #f3f4f6;
-            font-weight: bold;
-          }
-          .moyenne {
-            margin-top: 20px;
-            padding: 10px;
-            background-color: #e0e7ff;
-            border-radius: 8px;
-            font-weight: bold;
-            text-align: center;
-            font-size: 18px;
-          }
-          .footer {
-            margin-top: 50px;
-            text-align: center;
-            font-size: 12px;
-            color: #9ca3af;
-            border-top: 1px solid #e5e7eb;
-            padding-top: 20px;
-          }
-          @media print {
-            body {
-              margin: 0;
-              padding: 20px;
-            }
-            .print-container {
-              max-width: 100%;
-            }
-            .section {
-              page-break-inside: avoid;
-            }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="print-container">
-          <div class="header">
-            <div class="title">Mon Établissement Scolaire</div>
-            <div class="subtitle">Relevé d'informations étudiant</div>
-          </div>
-          <div class="section">
-            <div class="section-title">Informations personnelles</div>
-            <div class="info-grid">
-              <div class="info-item"><span class="info-label">Nom :</span> ${etudiant?.nom || ''}</div>
-              <div class="info-item"><span class="info-label">Prénom :</span> ${etudiant?.prenom || ''}</div>
-              <div class="info-item"><span class="info-label">Date de naissance :</span> ${formatDate(etudiant?.date_naissance)}</div>
-              <div class="info-item"><span class="info-label">Classe :</span> ${etudiant?.classe?.nom || 'Non définie'}</div>
-              <div class="info-item"><span class="info-label">Email :</span> ${user?.email || ''}</div>
-            </div>
-          </div>
-          <div class="section">
-            <div class="section-title">Relevé de notes</div>
-            ${notes.length === 0 ? '<p>Aucune note disponible.</p>' : `
-              <table>
-                <thead><tr><th>Matière</th><th>Note /20</th></tr></thead>
-                <tbody>
-                  ${notes.map(n => `<tr><td>${n.matiere}</td><td>${n.note}</td></tr>`).join('')}
-                </tbody>
-              </table>
-              ${moyenneGenerale ? `<div class="moyenne">Moyenne générale : ${moyenneGenerale} / 20</div>` : ''}
-            `}
-          </div>
-          <div class="section">
-            <div class="section-title">Absences</div>
-            ${absences.length === 0 ? '<p>Aucune absence enregistrée.</p>' : `
-              <table>
-                <thead><tr><th>Date</th><th>Matière</th><th>Heures</th><th>Justification</th></tr></thead>
-                <tbody>
-                  ${absences.map(a => `
-                    <tr>
-                      <td>${formatDate(a.date)}</td>
-                      <td>${a.enseignant?.matiere || 'Non spécifiée'}</td>
-                      <td>${a.nb_heures} h</td>
-                      <td>${a.justifiee ? 'Justifiée' : 'Non justifiée'}</td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-              <p style="margin-top: 15px; text-align: right; font-weight: bold;">
-                Total des heures : ${totalHeures} h
-              </p>
-            `}
-          </div>
-          <div class="footer">
-            Document généré le ${new Date().toLocaleDateString()} - Plateforme scolaire
+        }
+      </style>
+    </head>
+    <body>
+      <div class="print-container">
+        <div class="header">
+          <div class="title">Mon Établissement Scolaire</div>
+          <div class="subtitle">Relevé d'informations étudiant</div>
+        </div>
+        <div class="section">
+          <div class="section-title">Informations personnelles</div>
+          <div class="info-grid">
+            <div class="info-item"><span class="info-label">Nom :</span> ${etudiant?.nom || ''}</div>
+            <div class="info-item"><span class="info-label">Prénom :</span> ${etudiant?.prenom || ''}</div>
+            <div class="info-item"><span class="info-label">Date de naissance :</span> ${formatDate(etudiant?.date_naissance)}</div>
+            <div class="info-item"><span class="info-label">Classe :</span> ${etudiant?.classe?.nom || 'Non définie'}</div>
+            <div class="info-item"><span class="info-label">Email :</span> ${user?.email || ''}</div>
           </div>
         </div>
-      </body>
-      </html>
-    `);
-    printWindow.document.close();
-    printWindow.print();
-  };
+        <div class="section">
+          <div class="section-title">Relevé de notes</div>
+          ${notesHtml}
+        </div>
+        <div class="section">
+          <div class="section-title">Absences</div>
+          ${absences.length === 0 ? '<p>Aucune absence enregistrée.</p>' : `
+            <table class="table">
+              <thead>
+                <tr><th>Date</th><th>Matière</th><th>Heures</th><th>Justification</th></tr>
+              </thead>
+              <tbody>
+                ${absences.map(a => `
+                  <tr>
+                    <td>${formatDate(a.date)}</td>
+                    <td>${a.enseignant?.matiere || 'Non spécifiée'}</td>
+                    <td>${a.nb_heures} h</td>
+                    <td>${a.justifiee ? 'Justifiée' : 'Non justifiée'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+            <p style="margin-top: 15px; text-align: right; font-weight: bold;">
+              Total des heures : ${totalHeures} h
+            </p>
+          `}
+        </div>
+        <div class="footer">
+          Document généré le ${new Date().toLocaleDateString()} - Plateforme scolaire
+        </div>
+      </div>
+    </body>
+    </html>
+  `);
+  printWindow.document.close();
+  printWindow.print();
+};
 
   // Impression de l'attestation scolaire enrichie (sans email)
   const handlePrintAttestation = () => {
@@ -493,55 +541,78 @@ export default function EtudiantDashboard() {
             </div>
           </div>
         );
-      case 'notes':
-        return (
-          <div className="space-y-6">
-            <div className="bg-gradient-to-r from-green-500 to-teal-600 rounded-2xl p-6 text-white">
-              <h2 className="text-2xl font-bold">Mes notes</h2>
-              <p className="text-green-100">Relevé de notes</p>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
-              {notes.length === 0 ? (
-                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                  <BookOpen className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                  <p>Aucune note disponible pour le moment.</p>
-                </div>
-              ) : (
-                <>
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                      <thead>
-                        <tr className="bg-gray-50 dark:bg-gray-700/50">
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Matière</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Note /20</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                        {notes.map((note) => (
-                          <tr key={note.id}>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{note.matiere}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm">
-                              <span className={`font-semibold ${parseFloat(note.note) >= 10 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                                {note.note}/20
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  {moyenneGenerale && (
-                    <div className="mt-6 p-4 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl text-center">
-                      <p className="text-lg font-semibold text-gray-700 dark:text-gray-200">
-                        Moyenne générale : <span className="text-indigo-600 dark:text-indigo-400 text-2xl font-bold">{moyenneGenerale}</span> / 20
-                      </p>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
+case 'notes':
+  // Regrouper les notes par matière
+  const notesByMatiere = notes.reduce((acc, note) => {
+    if (!acc[note.matiere]) acc[note.matiere] = [];
+    acc[note.matiere].push(note);
+    return acc;
+  }, {});
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-gradient-to-r from-green-500 to-teal-600 rounded-2xl p-6 text-white">
+        <h2 className="text-2xl font-bold">Mes notes</h2>
+        <p className="text-green-100">Relevé détaillé par contrôle</p>
+      </div>
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
+        {notes.length === 0 ? (
+          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+            <BookOpen className="h-12 w-12 mx-auto mb-3 opacity-50" />
+            <p>Aucune note disponible pour le moment.</p>
           </div>
-        );
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-700">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Matière</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Contrôle 1</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Contrôle 2</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Contrôle 3</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Moyenne</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {Object.entries(notesByMatiere).map(([matiere, notesList]) => {
+                    const controle1 = notesList.find(n => n.type_controle === 'Contrôle 1');
+                    const controle2 = notesList.find(n => n.type_controle === 'Contrôle 2');
+                    const controle3 = notesList.find(n => n.type_controle === 'Contrôle 3');
+                    const note1 = controle1 ? controle1.note : '-';
+                    const note2 = controle2 ? controle2.note : '-';
+                    const note3 = controle3 ? controle3.note : '-';
+                    let moyMatiere = '-';
+                    const notesValides = [controle1, controle2, controle3].filter(c => c && c.note);
+                    if (notesValides.length > 0) {
+                      const sum = notesValides.reduce((acc, c) => acc + parseFloat(c.note), 0);
+                      moyMatiere = (sum / notesValides.length).toFixed(2);
+                    }
+                    return (
+                      <tr key={matiere}>
+                        <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">{matiere}</td>
+                        <td className="px-4 py-3 text-center text-sm text-gray-700 dark:text-gray-300">{note1 !== '-' ? note1+'/20' : '-'}</td>
+                        <td className="px-4 py-3 text-center text-sm text-gray-700 dark:text-gray-300">{note2 !== '-' ? note2+'/20' : '-'}</td>
+                        <td className="px-4 py-3 text-center text-sm text-gray-700 dark:text-gray-300">{note3 !== '-' ? note3+'/20' : '-'}</td>
+                        <td className="px-4 py-3 text-center text-sm font-semibold text-indigo-600 dark:text-indigo-400">{moyMatiere !== '-' ? moyMatiere+'/20' : '-'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {moyenneGenerale && (
+              <div className="mt-6 p-4 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl text-center">
+                <p className="text-lg font-semibold text-gray-700 dark:text-gray-200">
+                  Moyenne générale : <span className="text-indigo-600 dark:text-indigo-400 text-2xl font-bold">{moyenneGenerale}</span> / 20
+                </p>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
       case 'absences':
         return (
           <div className="space-y-6">

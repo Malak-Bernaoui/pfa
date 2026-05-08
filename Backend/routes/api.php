@@ -28,6 +28,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/etudiants/{id}/notes', [NoteController::class, 'getNotesByEtudiant']);
     Route::get('/etudiants/{id}/absences', [AbsenceController::class, 'getAbsencesByEtudiant']);
     Route::get('/etudiants/{etudiantId}/notes/matiere', [NoteController::class, 'getNotesByEtudiantAndMatiere']);
+    Route::get('/etudiants/{id}/all-notes', [NoteController::class, 'getAllNotesByEtudiant']);
 
     // Classes
     Route::apiResource('/classes', ClasseController::class);
@@ -36,6 +37,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Notes et Absences 
     Route::apiResource('/notes', NoteController::class);
     Route::apiResource('/absences', AbsenceController::class);
+    
 
     // Contacts (message du formulaire)
     Route::get('/contacts', [ContactController::class, 'index']);

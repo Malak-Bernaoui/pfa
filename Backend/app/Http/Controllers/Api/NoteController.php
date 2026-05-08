@@ -26,13 +26,14 @@ public function index()
     public function store(Request $request)
     {
         $request->validate([
-            'matiere' => 'required|string|max:255',
-            'note' => 'required|numeric|min:0|max:20',
             'etudiant_id' => 'required|exists:etudiants,id',
+            'matiere' => 'required|string',
+            'type_controle' => 'required|string|in:Contrôle 1,Contrôle 2,Contrôle 3',
+            'note' => 'required|numeric|min:0|max:20',
         ]);
 
         $note = Note::create($request->all());
-        return response()->json($note->load('etudiant'), 201);
+        return response()->json($note, 201);
     }
 
     public function show($id)
@@ -47,18 +48,17 @@ public function index()
     public function update(Request $request, $id)
     {
         $note = Note::find($id);
-        if (!$note) {
-            return response()->json(['message' => 'Note non trouvée'], 404);
-        }
+        if (!$note) return response()->json(['message' => 'Note non trouvée'], 404);
 
         $request->validate([
-            'matiere' => 'required|string|max:255',
-            'note' => 'required|numeric|min:0|max:20',
-            'etudiant_id' => 'required|exists:etudiants,id',
+            'etudiant_id' => 'sometimes|exists:etudiants,id',
+            'matiere' => 'sometimes|string',
+            'type_controle' => 'sometimes|string|in:Contrôle 1,Contrôle 2,Contrôle 3',
+            'note' => 'sometimes|numeric|min:0|max:20',
         ]);
 
         $note->update($request->all());
-        return response()->json($note->load('etudiant'));
+        return response()->json($note);
     }
 
     public function destroy($id)
@@ -76,12 +76,13 @@ public function index()
     {
         try {
             $notes = Note::where('etudiant_id', $etudiantId)
-                         ->get(['id', 'matiere', 'note']);
+                        ->get(['id', 'matiere', 'type_controle', 'note']); // ajout de type_controle
             return response()->json($notes);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
+
     public function getNotesByEtudiantAndMatiere($etudiantId)
     {
         $enseignant = auth()->user()->enseignant;
@@ -91,8 +92,13 @@ public function index()
 
         $notes = Note::where('etudiant_id', $etudiantId)
                     ->where('matiere', $enseignant->matiere)
-                    ->get(['id', 'etudiant_id', 'matiere', 'note']);
+                    ->get(['id', 'matiere', 'type_controle', 'note']); // ajout de type_controle
 
         return response()->json($notes);
     }
+    public function getAllNotesByEtudiant($etudiantId)
+{
+    $notes = Note::where('etudiant_id', $etudiantId)->get(['id', 'matiere', 'type_controle', 'note']);
+    return response()->json($notes);
+}
 }
