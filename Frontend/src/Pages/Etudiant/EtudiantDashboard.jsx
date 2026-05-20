@@ -36,6 +36,16 @@ export default function EtudiantDashboard() {
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState('');
 
+  useEffect(() => {
+    const storedRole = localStorage.getItem('role');
+    const storedRoleId = localStorage.getItem('roleId');
+    const token = localStorage.getItem('token');
+
+    if (!token || storedRole !== 'etudiant' || storedRoleId !== id) {
+      navigate('/404', { replace: true });
+    }
+  }, [id, navigate]);
+
   const totalHeures = absences.reduce((sum, a) => sum + (a.nb_heures || 0), 0);
 
   const calculerMoyenne = () => {
@@ -106,16 +116,18 @@ export default function EtudiantDashboard() {
     fetchData();
   }, [id]);
 
-  const handleLogout = async () => {
-    try {
-      await api.post('/logout');
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      navigate('/login');
-    } catch (error) {
-      console.error('Erreur déconnexion', error);
-    }
-  };
+const handleLogout = async () => {
+  try {
+    await api.post('/logout');
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('role');
+    localStorage.removeItem('roleId');
+    navigate('/login');
+  } catch (error) {
+    console.error('Erreur déconnexion', error);
+  }
+};
 
   const handlePasswordChange = async (e) => {
     e.preventDefault();

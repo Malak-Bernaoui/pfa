@@ -58,6 +58,16 @@ export default function EnseignantDashboard() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
+   useEffect(() => {
+    const storedRole = localStorage.getItem('role');
+    const storedRoleId = localStorage.getItem('roleId');
+    const token = localStorage.getItem('token');
+
+    if (!token || storedRole !== 'enseignant' || storedRoleId !== id) {
+      navigate('/404', { replace: true });
+    }
+  }, [id, navigate]);
+
   // Toast auto
   useEffect(() => {
     if (message.text) {
@@ -140,14 +150,18 @@ export default function EnseignantDashboard() {
     fetchStudentNotes();
   }, [selectedEtudiantNotes, enseignant]);
 
-  const handleLogout = async () => {
-    try {
-      await api.post('/logout');
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      navigate('/login');
-    } catch (error) { console.error(error); }
-  };
+const handleLogout = async () => {
+  try {
+    await api.post('/logout');
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('role');
+    localStorage.removeItem('roleId');
+    navigate('/login');
+  } catch (error) {
+    console.error('Erreur déconnexion', error);
+  }
+};
 
   const formatDate = (dateString) => {
     if (!dateString) return '';

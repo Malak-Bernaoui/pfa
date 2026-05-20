@@ -142,14 +142,18 @@ export default function AdminDashboard() {
 
   useEffect(() => { fetchAllData(); }, []);
 
-  const handleLogout = async () => {
-    try {
-      await api.post('/logout');
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      navigate('/login');
-    } catch (error) { console.error(error); }
-  };
+const handleLogout = async () => {
+  try {
+    await api.post('/logout');
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('role');
+    localStorage.removeItem('roleId');
+    navigate('/login');
+  } catch (error) {
+    console.error('Erreur déconnexion', error);
+  }
+};
 
   // Mot de passe
   const handlePasswordChange = async (e) => {

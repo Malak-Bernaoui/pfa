@@ -26,6 +26,8 @@ export default function Login() {
 
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
+      localStorage.setItem('role', redirect.type); 
+      localStorage.setItem('roleId', redirect.id); 
 
       // Redirection basée sur le type détecté
       switch (redirect.type) {
@@ -39,7 +41,7 @@ export default function Login() {
           navigate(`/etudiant/${redirect.id}`);
           break;
         default:
-          navigate('/Accueil');
+          navigate('/accueil');
       }
     } catch (error) {
       console.error(error);

@@ -50,4 +50,5 @@ Route::middleware('auth:sanctum')->group(function () {
 
 
     Route::get('/users/no-role', [UserController::class, 'noRole']);
+    
 });
