@@ -213,7 +213,7 @@ export default function Dashboard() {
           <div className="space-y-4">
             <div>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Emploi du temps</h2>
-              <p className="text-sm text-gray-500 dark:text-slate-400 mt-0.5">Semaine du 24 avril 2026</p>
+              <p className="text-sm text-gray-500 dark:text-slate-400 mt-0.5">Semaine du 20 juillet 2026</p>
             </div>
             <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 overflow-hidden">
               <div className="overflow-x-auto">
